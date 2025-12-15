@@ -16,6 +16,14 @@ import Blank from "./pages/Blank";
 import AppLayout from "./layout/AppLayout";
 import { ScrollToTop } from "./components/common/ScrollToTop";
 import Home from "./pages/Dashboard/Home";
+import ManageUsers from "@/pages/Management/ManageUsers";
+import ManageFitra from "@/pages/Management/ManageFitra";
+import ManageZakat from "@/pages/Management/ManageZakat";
+import ManageSadaqah from "./pages/Management/ManageSadaqah";
+import ManageAid from "./pages/Management/ManageAid";
+import ManageSponsership from "./pages/Management/ManageSponsership";
+import CreateAnnouncements from "./pages/Management/CreateAnnouncements";
+import ManageUserEdit from "./pages/Management/ManageUserEdit";
 
 export default function App() {
   return (
@@ -37,6 +45,15 @@ export default function App() {
 
             {/* Tables */}
             <Route path="/leads" element={<BasicTables />} />
+            <Route path="/manage-users" element={<ManageUsers />} />
+            <Route path="/manage-fitra" element={<ManageFitra />} />
+            <Route path="/manage-zakat" element={<ManageZakat />} />
+            <Route path="/manage-sadaqah" element={<ManageSadaqah />} />
+            <Route path="/manage-aid" element={<ManageAid />} />
+            <Route path="/manage-sponsership" element={<ManageSponsership />} />
+            <Route path="/create-announcements" element={<CreateAnnouncements />} />
+            <Route path="/manage-users/create" element={<ManageUserEdit />} />
+            <Route path="/manage-users/:id/edit" element={<ManageUserEdit />} />
 
             {/* Ui Elements */}
             <Route path="/alerts" element={<Alerts />} />

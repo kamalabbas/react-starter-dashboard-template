@@ -2,7 +2,15 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import { Link, useLocation } from "react-router";
 
 // Assume these icons are imported from an icon library
-import { ChevronDownIcon, HorizontaLDots, TableIcon } from "../icons";
+import {
+  ChevronDownIcon,
+  HorizontaLDots,
+  GroupIcon,
+  DollarLineIcon,
+  BoxCubeIcon,
+  PageIcon,
+  PaperPlaneIcon,
+} from "../icons";
 import { useSidebar } from "../context/SidebarContext";
 
 type NavItem = {
@@ -14,9 +22,39 @@ type NavItem = {
 
 const navItems: NavItem[] = [
   {
-    name: "Leads",
-    icon: <TableIcon />,
-    path: "/leads",
+    name: "Manage users",
+    icon: <GroupIcon />,
+    path: "/manage-users",
+  },
+  {
+    name: "Fitra",
+    icon: <DollarLineIcon />,
+    path: "/manage-fitra",
+  },
+  {
+    name: "Zakat",
+    icon: <DollarLineIcon />,
+    path: "/manage-zakat",
+  },
+  {
+    name: "Sadaqah",
+    icon: <DollarLineIcon />,
+    path: "/manage-sadaqah",
+  },
+  {
+    name: "Aid",
+    icon: <BoxCubeIcon />,
+    path: "/manage-aid",
+  },
+  {
+    name: "Sponsership",
+    icon: <PageIcon />,
+    path: "/manage-sponsership",
+  },
+  {
+    name: "Create announcements",
+    icon: <PaperPlaneIcon />,
+    path: "/create-announcements",
   },
 ];
 

@@ -1,4 +1,4 @@
-import { User } from '@/interfaces/user.interface';
+import { User } from '@/interface/user.interface';
 import { create } from 'zustand';
 
 interface AuthState {
@@ -11,7 +11,7 @@ interface AuthState {
   setPushNotificationToken: (token: string) => void
 };
 
-export const useAuthStore = create<AuthState>((set, get) => ({
+export const useAuthStore = create<AuthState>((set, _get) => ({
   accessToken: null,
   user: undefined,
   pushNotificationToken: null,
