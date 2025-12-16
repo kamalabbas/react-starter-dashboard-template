@@ -24,10 +24,6 @@ api.interceptors.request.use(
   (config: InternalAxiosRequestConfig): InternalAxiosRequestConfig => {
     const token = useAuthStore.getState().accessToken;
 
-    console.log("➡️ Request URL:", config.url);
-    // console.log("➡️ Headers:", config.headers);
-    console.log("➡️ Body:", config?.data?.data?.data);
-
     if (!config.headers || !(config.headers instanceof axios.AxiosHeaders)) {
       config.headers = new axios.AxiosHeaders(config.headers);
     }
@@ -43,19 +39,11 @@ api.interceptors.request.use(
 // --- Response Interceptor
 api.interceptors.response.use(
   (response) => {
-    // console.log(response?.data, 'this is the data');
-
     return response;
   },
   async (error) => {
     const err = error as AxiosError<any>;
     const originalRequest = err.config as (AxiosRequestConfig & { _retry?: boolean }) | undefined;
-
-    console.log("⛔ RESPONSE ERROR:", err?.response);
-    console.log("  URL:", originalRequest?.url);
-    console.log("  STATUS:", err.response?.status);
-    console.log("  DATA:", err.response?.data);
-    // console.log("  HEADERS:", err.response?.headers);
 
     const detail = err.response?.data?.detail;
     if (detail) useToastStore.getState().showToast(detail, "error");
@@ -66,11 +54,9 @@ api.interceptors.response.use(
 
       // If already refreshing → wait
       if (isRefreshing) {
-        console.log("⏳ Waiting for ongoing token refresh...");
         return new Promise((resolve, reject) => {
           refreshQueue.push((newToken) => {
             if (newToken) {
-              console.log("✅ Token refreshed, queued request released.");
               originalRequest.headers = originalRequest.headers || {};
               (originalRequest.headers as any)["Authorization"] = `Bearer ${newToken}`;
               resolve(api(originalRequest));
@@ -85,12 +71,8 @@ api.interceptors.response.use(
 
       try {
         const refreshTok = await getRefreshToken();
-        console.log("🔄 Attempting to refresh token:", refreshTok);
 
         if (!refreshTok) throw new Error("No refresh token found");
-
-        console.log("📤 Sending refresh request to:", `${import.meta.env.VITE_BASE_URL}/Auth/Refresh`);
-        console.log("📦 Payload:", { refreshToken: refreshTok });
 
         // Use raw axios to avoid recursion
         const refreshResp: AxiosResponse<any> = await axios.request({
@@ -103,8 +85,6 @@ api.interceptors.response.use(
           },
           validateStatus: () => true, // so we can log even 400/500
         });
-
-        console.log("✅ Refresh Response:", refreshResp.status, refreshResp.data);
 
         if (refreshResp.status !== 200) {
           console.error("❌ Refresh failed with non-200 status:", refreshResp.status);
@@ -120,11 +100,6 @@ api.interceptors.response.use(
           throw new Error("Token refresh failed: invalid response format");
         }
 
-        console.log("🎯 New Tokens:", {
-          accessToken: newAccess.slice(0, 20) + "...",
-          refreshToken: newRefresh.slice(0, 20) + "...",
-        });
-
         // Save new tokens
         await setRefreshToken(newRefresh);
         useAuthStore.getState().setAccessToken(newAccess);
@@ -138,8 +113,6 @@ api.interceptors.response.use(
         // ✅ Retry the failed request using the new token
         originalRequest.headers = originalRequest.headers || {};
         (originalRequest.headers as any)["Authorization"] = `Bearer ${useAuthStore.getState().accessToken}`;
-
-        console.log("🔁 Retrying original request after successful token refresh:", originalRequest.url);
         return api(originalRequest);
       } catch (refreshErr: any) {
         console.error("🔥 Refresh token request failed:", refreshErr);

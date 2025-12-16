@@ -8,7 +8,10 @@ const ManageUsers: React.FC = () => {
   return (
     <div className="p-6">
       <div className="flex items-center justify-between">
-        <h1 className="text-2xl font-semibold">Manage Users</h1>
+        {/* <h1 className="text-2xl font-semibold">Manage Users</h1> */}
+        <h1 className="mb-2 font-semibold text-gray-800 text-title-sm dark:text-white/90 sm:text-title-md">
+          Manage Users
+        </h1>
         <Link to="/manage-users/create" className="btn btn-primary">
           Create User
         </Link>

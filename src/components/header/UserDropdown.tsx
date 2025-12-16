@@ -1,10 +1,15 @@
 import { useState } from "react";
 import { DropdownItem } from "../ui/dropdown/DropdownItem";
 import { Dropdown } from "../ui/dropdown/Dropdown";
-import { Link } from "react-router";
+import { useNavigate } from "react-router";
+import { logout } from "@/services/authService";
+import { removeRefreshToken, getRefreshToken } from "@/utility/secureStore";
+import { useAuthStore } from "@/stores/authStore";
+import { useToastStore } from "@/stores/toastStore";
 
 export default function UserDropdown() {
   const [isOpen, setIsOpen] = useState(false);
+  const navigate = useNavigate();
 
   function toggleDropdown() {
     setIsOpen(!isOpen);
@@ -135,9 +140,32 @@ export default function UserDropdown() {
             </DropdownItem>
           </li>
         </ul>
-        <Link
-          to="/signin"
-          className="flex items-center gap-3 px-3 py-2 mt-3 font-medium text-gray-700 rounded-lg group text-theme-sm hover:bg-gray-100 hover:text-gray-700 dark:text-gray-400 dark:hover:bg-white/5 dark:hover:text-gray-300"
+        <button
+          onClick={async () => {
+            closeDropdown();
+
+            try {
+              // attempt server logout with refreshToken if available
+              const refresh = await getRefreshToken();
+              if (refresh) {
+                await logout({ refreshToken: refresh });
+              } else {
+                await logout();
+              }
+            } catch (err) {
+              // ignore server error but continue clearing local state
+              console.warn("Logout API failed:", err);
+            }
+            try {
+              await removeRefreshToken();
+            } catch (err) {
+              console.warn("Failed to remove refresh token:", err);
+            }
+            useAuthStore.getState().clearAuth();
+            useToastStore.getState().showToast("Signed out", "success");
+            navigate("/signin");
+          }}
+          className="w-full text-left flex items-center gap-3 px-3 py-2 mt-3 font-medium text-gray-700 rounded-lg group text-theme-sm hover:bg-gray-100 hover:text-gray-700 dark:text-gray-400 dark:hover:bg-white/5 dark:hover:text-gray-300"
         >
           <svg
             className="fill-gray-500 group-hover:fill-gray-700 dark:group-hover:fill-gray-300"
@@ -155,7 +183,7 @@ export default function UserDropdown() {
             />
           </svg>
           Sign out
-        </Link>
+        </button>
       </Dropdown>
     </div>
   );
