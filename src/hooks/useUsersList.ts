@@ -13,7 +13,7 @@ export interface UserListItem {
 const useUsersList = () => {
   return useQuery<BaseResponse<{ userList: UserListItem[] }>, Error, UserListItem[]>({
     queryKey: ["users", "list"],
-    queryFn: () => getData<BaseResponse<{ userList: UserListItem[] }>>(`/FamilyTreeBe/GetUsers`),
+    queryFn: () => getData<BaseResponse<{ userList: UserListItem[] }>>(`/Admin/GetAllUsers`),
     select: (res) => res.data?.userList ?? [],
     staleTime: 1000 * 60 * 2,
   });
