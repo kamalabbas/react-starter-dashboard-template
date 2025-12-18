@@ -15,17 +15,30 @@ const ThemeContext = createContext<ThemeContextType | undefined>(undefined);
 export const ThemeProvider: React.FC<{ children: React.ReactNode }> = ({
   children,
 }) => {
-  const [theme, setTheme] = useState<Theme>("light");
-  const [isInitialized, setIsInitialized] = useState(false);
+  const [theme, setTheme] = useState<Theme>(() => {
+    if (typeof window === 'undefined') return 'light';
+    try {
+      const saved = localStorage.getItem('theme') as Theme | null;
+      if (saved) return saved;
+      if (window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches) return 'dark';
+      if (document.documentElement.classList.contains('dark')) return 'dark';
+    } catch (e) {
+      /* ignore */
+    }
+    return 'light';
+  });
+  const [isInitialized, setIsInitialized] = useState(true);
 
   useEffect(() => {
-    // This code will only run on the client side
-    const savedTheme = localStorage.getItem("theme") as Theme | null;
-    const initialTheme = savedTheme || "light"; // Default to light theme
-
-    setTheme(initialTheme);
-    setIsInitialized(true);
-  }, []);
+    // ensure localStorage and document class are synced on mount
+    try {
+      localStorage.setItem('theme', theme);
+      if (theme === 'dark') document.documentElement.classList.add('dark');
+      else document.documentElement.classList.remove('dark');
+    } catch (e) {
+      /* ignore */
+    }
+  }, [theme]);
 
   useEffect(() => {
     if (isInitialized) {

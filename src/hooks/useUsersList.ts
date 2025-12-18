@@ -1,19 +1,16 @@
 import { BaseResponse } from "@/interface/baseResponse.interface";
+import { User } from "@/interface/user.interface";
 import { getData } from "@/services/api";
 import { useQuery } from "@tanstack/react-query";
 
-export interface UserListItem {
-  userId: number;
-  fullName: string;
-  imageUrl?: string;
-  dob?: string;
-  gender?: number | string;
+export interface GetAllUsersResponse {
+  userList: User[];
 }
 
 const useUsersList = () => {
-  return useQuery<BaseResponse<{ userList: UserListItem[] }>, Error, UserListItem[]>({
+  return useQuery<BaseResponse<GetAllUsersResponse>, Error, User[]>({
     queryKey: ["users", "list"],
-    queryFn: () => getData<BaseResponse<{ userList: UserListItem[] }>>(`/Admin/GetAllUsers`),
+    queryFn: () => getData<BaseResponse<GetAllUsersResponse>>(`/Admin/GetAllUsers`),
     select: (res) => res.data?.userList ?? [],
     staleTime: 1000 * 60 * 2,
   });
