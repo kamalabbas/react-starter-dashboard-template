@@ -6,7 +6,7 @@ import UserAvatar from "@/components/ui/avatar/UserAvatar";
 import Button from "@/components/ui/button/Button";
 import { Modal } from "@/components/ui/modal";
 import useApproveSponsor from "@/hooks/useApproveSponsor";
-import { useQueryClient } from "@tanstack/react-query";
+
 import { useToastStore } from "@/stores/toastStore";
 
 const ManageSponsership: React.FC = () => {
@@ -14,7 +14,6 @@ const ManageSponsership: React.FC = () => {
   const [selected, setSelected] = useState<Beneficiary | null>(null);
   const showToast = useToastStore((s) => s.showToast);
   const approve = useApproveSponsor();
-  const qc = useQueryClient();
   const [approvingSponsorId, setApprovingSponsorId] = useState<number | null>(null);
 
   const columns: Column<Beneficiary>[] = [
@@ -54,10 +53,21 @@ const ManageSponsership: React.FC = () => {
 
   const onApprove = async (beneficiaryId: number, sponsorId: number) => {
     try {
+      setApprovingSponsorId(sponsorId);
       await approve.mutateAsync({ beneficiaryId, sponsorId });
+      // Optimistically update selected sponsors in the modal so UI reflects approval immediately
+      setSelected((prev) => {
+        if (!prev || prev.id !== beneficiaryId) return prev;
+        return {
+          ...prev,
+          sponsors: prev.sponsors?.map((sp) => (sp.id === sponsorId ? { ...sp, statusCode: "ACCEPTED" } : sp)) ?? prev.sponsors,
+        };
+      });
       showToast("Sponsor approved", "success");
     } catch (err: any) {
       showToast(err?.message ?? "Failed to approve sponsor", "error");
+    } finally {
+      setApprovingSponsorId(null);
     }
   };
 
@@ -79,8 +89,8 @@ const ManageSponsership: React.FC = () => {
       </div>
 
       <Modal isOpen={Boolean(selected)} onClose={() => setSelected(null)}>
-        <div className="p-6">
-          <h3 className="text-lg font-semibold mb-4">Sponsors for {selected?.fullName}</h3>
+        <div className="p-6 pt-12 sm:pt-14">
+          <h3 className="text-lg font-semibold mb-4 text-gray-900 dark:text-white/90">Sponsors for {selected?.fullName}</h3>
 
           <div className="space-y-3">
             {selected?.sponsors?.length ? (
@@ -97,7 +107,19 @@ const ManageSponsership: React.FC = () => {
                   <div className="flex items-center gap-3">
                     <div className="text-sm font-medium text-gray-700 dark:text-gray-200">{s.statusCode ?? "-"}</div>
                     {s.statusCode !== "ACCEPTED" && (
-                      <Button size="sm" onClick={() => onApprove(selected.id, s.id)}>Approve</Button>
+                      <Button
+                        size="sm"
+                        onClick={() => onApprove(selected.id, s.id)}
+                        startIcon={approvingSponsorId === s.id ? (
+                          <svg className="animate-spin h-4 w-4 text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                            <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+                            <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v4a4 4 0 00-4 4H4z"></path>
+                          </svg>
+                        ) : undefined}
+                        disabled={approvingSponsorId === s.id}
+                      >
+                        {approvingSponsorId === s.id ? "Approving..." : "Approve"}
+                      </Button>
                     )}
                   </div>
                 </div>
