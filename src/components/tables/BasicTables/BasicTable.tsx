@@ -76,38 +76,36 @@ function BasicTableInner<T>({
     <div className="overflow-hidden rounded-xl border border-gray-200 bg-white dark:border-white/[0.05] dark:bg-white/[0.03]">
       <div className="max-w-full">
         <div className="overflow-x-auto w-full">
-          <div className="inline-block min-w-max">
-            <Table className={tableClassName}>
-              <TableHeader className="border-b border-gray-100 dark:border-white/[0.05]">
-              <TableRow>
+          <Table className={tableClassName}>
+            <TableHeader className="border-b border-gray-100 dark:border-white/[0.05]">
+            <TableRow>
+              {columns.map((col) => (
+                <TableCell
+                  isHeader
+                  key={col.key}
+                  className={`px-5 py-3 font-medium text-gray-500 text-start text-theme-xs dark:text-gray-400 ${col.headerClassName ?? ""}`} 
+                >
+                  {col.header}
+                </TableCell>
+              ))}
+            </TableRow>
+          </TableHeader>
+
+          <TableBody className="divide-y divide-gray-100 dark:divide-white/[0.05]">
+            {pagedData.map((row) => (
+              <TableRow key={(rowKey ? rowKey(row) : (row as any).id) as React.Key}>
                 {columns.map((col) => (
                   <TableCell
-                    isHeader
                     key={col.key}
-                    className={`px-5 py-3 font-medium text-gray-500 text-start text-theme-xs dark:text-gray-400 ${col.headerClassName ?? ""}`} 
+                    className={`px-5 py-3 text-gray-600 text-start text-theme-sm dark:text-gray-300 ${col.className ?? ""} ${col.align === "right" ? "text-right" : "text-left"}`}
                   >
-                    {col.header}
+                    {col.render ? col.render(row) : (row as any)[col.key] ?? "-"}
                   </TableCell>
                 ))}
               </TableRow>
-            </TableHeader>
-
-            <TableBody className="divide-y divide-gray-100 dark:divide-white/[0.05]">
-              {pagedData.map((row) => (
-                <TableRow key={(rowKey ? rowKey(row) : (row as any).id) as React.Key}>
-                  {columns.map((col) => (
-                    <TableCell
-                      key={col.key}
-                      className={`px-5 py-3 text-gray-600 text-start text-theme-sm dark:text-gray-300 ${col.className ?? ""} ${col.align === "right" ? "text-right" : "text-left"}`}
-                    >
-                      {col.render ? col.render(row) : (row as any)[col.key] ?? "-"}
-                    </TableCell>
-                  ))}
-                </TableRow>
-              ))}
-            </TableBody>
-          </Table>
-          </div>
+            ))}
+          </TableBody>
+        </Table>
         </div>
       </div>
 
