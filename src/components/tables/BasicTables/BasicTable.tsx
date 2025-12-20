@@ -54,7 +54,7 @@ function BasicTableInner<T>({
   if (page > totalPages) setPage(totalPages);
 
   if (isLoading) {
-    return <div className="p-6">Loading...</div>;
+    return <div className="p-6 text-gray-800 dark:text-white text-center">Loading...</div>;
   }
 
   if (isError) {

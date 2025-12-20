@@ -25,6 +25,7 @@ import ManageAid from "./pages/Management/ManageAid";
 import ManageSponsership from "./pages/Management/ManageSponsership";
 import CreateAnnouncements from "./pages/Management/CreateAnnouncements";
 import ManageUserEdit from "./pages/Management/ManageUserEdit";
+import Configuration from "./pages/Management/Configuration";
 
 export default function App() {
   return (
@@ -53,6 +54,7 @@ export default function App() {
             <Route path="/manage-aid" element={<ManageAid />} />
             <Route path="/manage-sponsership" element={<ManageSponsership />} />
             <Route path="/create-announcements" element={<CreateAnnouncements />} />
+            <Route path="/configuration" element={<Configuration />} />
             <Route path="/manage-users/create" element={<ManageUserEdit />} />
             <Route path="/manage-users/:id/edit" element={<ManageUserEdit />} />
 

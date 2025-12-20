@@ -56,6 +56,11 @@ const navItems: NavItem[] = [
     icon: <PaperPlaneIcon />,
     path: "/create-announcements",
   },
+  {
+    name: "Configuration",
+    icon: <PageIcon />,
+    path: "/configuration",
+  },
 ];
 
 const AppSidebar: React.FC = () => {
