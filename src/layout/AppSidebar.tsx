@@ -59,7 +59,10 @@ const navItems: NavItem[] = [
   {
     name: "Configuration",
     icon: <PageIcon />,
-    path: "/configuration",
+    subItems: [
+      { name: "Payment Types", path: "/configuration/payment-types" },
+      { name: "Ramadan Configuration", path: "/configuration/ramadan" },
+    ],
   },
 ];
 
@@ -83,27 +86,20 @@ const AppSidebar: React.FC = () => {
   );
 
   useEffect(() => {
-    let submenuMatched = false;
-    ["main", "others"].forEach((menuType) => {
-      const items = navItems;
-      items.forEach((nav, index) => {
-        if (nav.subItems) {
-          nav.subItems.forEach((subItem) => {
-            if (isActive(subItem.path)) {
-              setOpenSubmenu({
-                type: menuType as "main" | "others",
-                index,
-              });
-              submenuMatched = true;
-            }
-          });
+    let matchedIndex: number | null = null;
+    navItems.forEach((nav, index) => {
+      if (!nav.subItems || matchedIndex !== null) return;
+      for (const subItem of nav.subItems) {
+        if (isActive(subItem.path)) {
+          matchedIndex = index;
+          break;
         }
-      });
+      }
     });
 
-    if (!submenuMatched) {
-      setOpenSubmenu(null);
-    }
+    // Only auto-open when a subItem is active.
+    // Do NOT auto-collapse on navigation; collapse only when user toggles another parent.
+    if (matchedIndex !== null) setOpenSubmenu({ type: "main", index: matchedIndex });
   }, [location, isActive]);
 
   useEffect(() => {
@@ -178,6 +174,7 @@ const AppSidebar: React.FC = () => {
                 className={`menu-item group ${
                   isActive(nav.path) ? "menu-item-active" : "menu-item-inactive"
                 }`}
+                onClick={() => setOpenSubmenu(null)}
               >
                 <span
                   className={`menu-item-icon-size ${

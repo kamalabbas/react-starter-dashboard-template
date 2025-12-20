@@ -19,7 +19,7 @@ export interface GetFitraPaymentTypesResponse {
 const useGetFitraPaymentTypes = () => {
   return useQuery<BaseResponse<GetFitraPaymentTypesResponse>, Error, FitraPaymentType[]>({
     queryKey: ["paymentTypes", "fitra"],
-    queryFn: () => getData<BaseResponse<GetFitraPaymentTypesResponse>>(`/FamilyTreeBe/Fitra/GetPaymentTypes?isActive=true`),
+    queryFn: () => getData<BaseResponse<GetFitraPaymentTypesResponse>>(`/FamilyTreeBe/Fitra/GetPaymentTypes`),
     select: (res) => res.data?.paymentTypeList ?? [],
     staleTime: 1000 * 60 * 10,
   });

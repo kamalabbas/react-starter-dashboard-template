@@ -26,6 +26,8 @@ import ManageSponsership from "./pages/Management/ManageSponsership";
 import CreateAnnouncements from "./pages/Management/CreateAnnouncements";
 import ManageUserEdit from "./pages/Management/ManageUserEdit";
 import Configuration from "./pages/Management/Configuration";
+import ConfigurationPaymentTypes from "./pages/Management/ConfigurationPaymentTypes";
+import ConfigurationRamadan from "./pages/Management/ConfigurationRamadan";
 
 export default function App() {
   return (
@@ -55,6 +57,8 @@ export default function App() {
             <Route path="/manage-sponsership" element={<ManageSponsership />} />
             <Route path="/create-announcements" element={<CreateAnnouncements />} />
             <Route path="/configuration" element={<Configuration />} />
+            <Route path="/configuration/payment-types" element={<ConfigurationPaymentTypes />} />
+            <Route path="/configuration/ramadan" element={<ConfigurationRamadan />} />
             <Route path="/manage-users/create" element={<ManageUserEdit />} />
             <Route path="/manage-users/:id/edit" element={<ManageUserEdit />} />
 
