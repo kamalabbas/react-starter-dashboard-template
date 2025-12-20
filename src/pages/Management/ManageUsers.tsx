@@ -108,9 +108,9 @@ const ManageUsers: React.FC = () => {
         <h1 className="mb-2 font-semibold text-gray-800 text-title-sm dark:text-white/90 sm:text-title-md">
           Manage Users
         </h1>
-        <Link to="/manage-users/create" className="btn btn-primary text-gray-800 dark:text-white/90">
+        {/* <Link to="/manage-users/create" className="btn btn-primary text-gray-800 dark:text-white/90">
           Create User
-        </Link>
+        </Link> */}
       </div>
 
       <div className="mt-6">
