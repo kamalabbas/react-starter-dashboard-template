@@ -1,4 +1,4 @@
-import React from "react";
+import React, { useState } from "react";
 import { Link } from "react-router";
 import useUsersList from "@/hooks/useUsersList";
 import BasicTable, { Column } from "@/components/tables/BasicTables/BasicTable";
@@ -7,6 +7,17 @@ import UserAvatar from "@/components/ui/avatar/UserAvatar";
 
 const ManageUsers: React.FC = () => {
   const { data: users = [], isLoading, isError } = useUsersList();
+  const [search, setSearch] = useState("");
+
+  // Filter users by name or email
+  const filteredUsers = users.filter((u) => {
+    const profile = u.userProfile;
+    const fullName = profile ? `${profile.firstName} ${profile.familyName}` : "";
+    return (
+      fullName.toLowerCase().includes(search.toLowerCase()) ||
+      u.email.toLowerCase().includes(search.toLowerCase())
+    );
+  });
 
   const columns: Column<User>[] = [
     {
@@ -17,12 +28,6 @@ const ManageUsers: React.FC = () => {
         const profile = u.userProfile;
         const fullName = profile ? `${profile.firstName} ${profile.familyName}` : u.email;
         const src = profile?.profilePicUrl ?? null;
-
-        // Local small Image/Placeholder component to avoid layout jumps and not use a default image file
-        
-        // ... later in render
-        // use UserAvatar component instead of inline implementation
-
 
         return (
           <div className="flex items-center gap-3">
@@ -39,11 +44,6 @@ const ManageUsers: React.FC = () => {
       key: "id",
       header: "ID",
       render: (u) => <span className="text-sm text-gray-500 dark:text-gray-400">{u.id}</span>,
-    },
-    {
-      key: "role",
-      header: "Role",
-      render: (u) => <span className="text-sm text-gray-500 dark:text-gray-400">{u.userRoleCode ?? "-"}</span>,
     },
     {
       key: "email",
@@ -97,31 +97,39 @@ const ManageUsers: React.FC = () => {
       className: "text-right",
       align: "right",
       render: (u) => (
-        <Link to={`/manage-users/${u.id}/edit`} className="text-indigo-600 hover:text-indigo-900">Edit</Link>
+        <Link
+          to={`/manage-users/${u.id}/edit`}
+          className="inline-block px-3 py-1 rounded bg-blue-600 hover:bg-blue-700 text-white text-xs font-semibold transition shadow"
+        >
+          Edit
+        </Link>
       ),
     },
   ];
 
   return (
     <div className="p-6">
-      <div className="flex items-center justify-between">
-        <h1 className="mb-2 font-semibold text-gray-800 text-title-sm dark:text-white/90 sm:text-title-md">
+      <div className="flex items-center justify-between mb-4">
+        <h1 className="font-semibold text-gray-800 text-title-sm dark:text-white/90 sm:text-title-md">
           Manage Users
         </h1>
-        {/* <Link to="/manage-users/create" className="btn btn-primary text-gray-800 dark:text-white/90">
-          Create User
-        </Link> */}
+        <input
+          type="text"
+          className="px-3 py-2 rounded border border-gray-300 dark:border-gray-700 bg-gray-50 dark:bg-slate-800 text-gray-900 dark:text-gray-100 focus:outline-none focus:ring-2 focus:ring-blue-500 w-64"
+          placeholder="Search by name or email..."
+          value={search}
+          onChange={(e) => setSearch(e.target.value)}
+        />
       </div>
-
       <div className="mt-6">
         <BasicTable<User>
           columns={columns}
-          data={users}
+          data={filteredUsers}
           isLoading={isLoading}
           isError={isError}
           rowKey={(u) => u.id}
           emptyMessage="No users found."
-          pagination={{ initialPage: 1, pageSize: 15 }}
+          pagination={{ initialPage: 1, pageSize: 10 }}
         />
       </div>
     </div>

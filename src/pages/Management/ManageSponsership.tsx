@@ -12,6 +12,7 @@ import { useToastStore } from "@/stores/toastStore";
 const ManageSponsership: React.FC = () => {
   const { data: beneficiaries = [], isLoading, isError } = useGetBeneficiaries();
   const [selected, setSelected] = useState<Beneficiary | null>(null);
+  const [search, setSearch] = useState("");
   const showToast = useToastStore((s) => s.showToast);
   const approve = useApproveSponsor();
   const [approvingSponsorId, setApprovingSponsorId] = useState<number | null>(null);
@@ -51,6 +52,13 @@ const ManageSponsership: React.FC = () => {
     },
   ];
 
+  const filteredBeneficiaries = beneficiaries.filter(b => {
+    return (
+      b.fullName?.toLowerCase().includes(search.toLowerCase()) ||
+      String(b.civilFamilyNumber ?? "").toLowerCase().includes(search.toLowerCase())
+    );
+  });
+
   const onApprove = async (beneficiaryId: number, sponsorId: number) => {
     try {
       setApprovingSponsorId(sponsorId);
@@ -73,18 +81,27 @@ const ManageSponsership: React.FC = () => {
 
   return (
     <div className="p-6">
-      <div className="flex items-center justify-between">
-        <h1 className="mb-2 font-semibold text-gray-800 text-title-sm dark:text-white/90 sm:text-title-md">Sponsorship</h1>
+      <div className="flex items-center justify-between mb-4">
+        <h1 className="font-semibold text-gray-800 text-title-sm dark:text-white/90 sm:text-title-md">
+          Manage Sponsership
+        </h1>
+        <input
+          type="text"
+          className="px-3 py-2 rounded border border-gray-300 dark:border-gray-700 bg-gray-50 dark:bg-slate-800 text-gray-900 dark:text-gray-100 focus:outline-none focus:ring-2 focus:ring-blue-500 w-64"
+          placeholder="Search by name or family number..."
+          value={search}
+          onChange={e => setSearch(e.target.value)}
+        />
       </div>
-
       <div className="mt-6">
         <BasicTable<Beneficiary>
           columns={columns}
-          data={beneficiaries}
+          data={filteredBeneficiaries}
           isLoading={isLoading}
           isError={isError}
           rowKey={(b) => b.id}
           emptyMessage="No beneficiaries found."
+          pagination={{ initialPage: 1, pageSize: 10 }}
         />
       </div>
 

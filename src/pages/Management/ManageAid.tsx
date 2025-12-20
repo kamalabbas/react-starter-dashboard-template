@@ -11,6 +11,7 @@ const ManageAid: React.FC = () => {
   const { data: aids = [], isLoading, isError } = useGetAllAidRequests();
   const [selected, setSelected] = useState<AskForAidItem | null>(null);
   const [approvingAidId, setApprovingAidId] = useState<number | null>(null);
+  const [search, setSearch] = useState("");
   const approve = useApproveAid();
   const showToast = useToastStore((s) => s.showToast);
 
@@ -50,6 +51,13 @@ const ManageAid: React.FC = () => {
     },
   ];
 
+  const filteredAids = aids.filter(a => {
+    return (
+      a.requester.fullName?.toLowerCase().includes(search.toLowerCase()) ||
+      String(a.requester.civilFamilyNumber ?? "").toLowerCase().includes(search.toLowerCase())
+    );
+  });
+
   const onApprove = async (askForAidId: number) => {
     try {
       setApprovingAidId(askForAidId);
@@ -65,14 +73,22 @@ const ManageAid: React.FC = () => {
 
   return (
     <div className="p-6">
-      <div className="flex items-center justify-between">
-        <h1 className="mb-2 font-semibold text-gray-800 text-title-sm dark:text-white/90 sm:text-title-md">Aid Requests</h1>
+      <div className="flex items-center justify-between mb-4">
+        <h1 className="font-semibold text-gray-800 text-title-sm dark:text-white/90 sm:text-title-md">
+          Manage Aid
+        </h1>
+        <input
+          type="text"
+          className="px-3 py-2 rounded border border-gray-300 dark:border-gray-700 bg-gray-50 dark:bg-slate-800 text-gray-900 dark:text-gray-100 focus:outline-none focus:ring-2 focus:ring-blue-500 w-64"
+          placeholder="Search by name or family number..."
+          value={search}
+          onChange={e => setSearch(e.target.value)}
+        />
       </div>
-
       <div className="mt-6">
         <BasicTable<AskForAidItem>
           columns={columns}
-          data={aids}
+          data={filteredAids}
           isLoading={isLoading}
           isError={isError}
           rowKey={(a) => a.askForAidId}

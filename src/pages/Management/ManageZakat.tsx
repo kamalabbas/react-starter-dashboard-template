@@ -9,11 +9,19 @@ import { useToastStore } from "@/stores/toastStore";
 
 const ManageZakat: React.FC = () => {
   const { data: zakat = [], isLoading, isError } = useGetAllZakat();
+  const [search, setSearch] = useState("");
   const [approvingId, setApprovingId] = useState<number | null>(null);
   const [confirmingId, setConfirmingId] = useState<number | null>(null);
   const update = useUpdateZakatStatus();
   const showToast = useToastStore((s) => s.showToast);
   const [recipients, setRecipients] = useState<ZakatItem["zakatRecipientList"] | null>(null);
+
+  const filteredZakat = zakat.filter(s => {
+    return (
+      s.fullName?.toLowerCase().includes(search.toLowerCase()) ||
+      String(s.userId).toLowerCase().includes(search.toLowerCase())
+    );
+  });
 
   const columns: Column<ZakatItem>[] = [
     {
@@ -66,18 +74,27 @@ const ManageZakat: React.FC = () => {
 
   return (
     <div className="p-6">
-      <div className="flex items-center justify-between">
-        <h1 className="mb-2 font-semibold text-gray-800 text-title-sm dark:text-white/90 sm:text-title-md">Zakat Payments</h1>
+      <div className="flex items-center justify-between mb-4">
+        <h1 className="font-semibold text-gray-800 text-title-sm dark:text-white/90 sm:text-title-md">
+          Manage Zakat
+        </h1>
+        <input
+          type="text"
+          className="px-3 py-2 rounded border border-gray-300 dark:border-gray-700 bg-gray-50 dark:bg-slate-800 text-gray-900 dark:text-gray-100 focus:outline-none focus:ring-2 focus:ring-blue-500 w-64"
+          placeholder="Search by name or user ID..."
+          value={search}
+          onChange={e => setSearch(e.target.value)}
+        />
       </div>
-
       <div className="mt-6">
         <BasicTable<ZakatItem>
           columns={columns}
-          data={zakat}
+          data={filteredZakat}
           isLoading={isLoading}
           isError={isError}
           rowKey={(s) => s.id}
           emptyMessage="No zakat payments found."
+          pagination={{ initialPage: 1, pageSize: 10 }}
         />
       </div>
 
