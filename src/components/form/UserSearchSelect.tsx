@@ -30,6 +30,7 @@ const UserSearchSelect: React.FC<Props> = ({
   const [isFocused, setIsFocused] = useState(false);
   const [selectedLabel, setSelectedLabel] = useState<string>("");
   const debounceRef = useRef<number | null>(null);
+  const inputRef = useRef<HTMLInputElement | null>(null);
 
   const { data, isFetching, refetch } = useSearchUsers(String(searchQuery || ""), gender, civilFamilyNumber);
 
@@ -78,6 +79,7 @@ const UserSearchSelect: React.FC<Props> = ({
 
       <div className="relative">
         <input
+          ref={inputRef}
           value={inputValue}
           disabled={!!disabled}
           placeholder={placeholder}
@@ -127,6 +129,9 @@ const UserSearchSelect: React.FC<Props> = ({
                       onChange(String(u.userId));
                       setOpen(false);
                       setSearchQuery("");
+                      setIsFocused(false);
+                      // Make the selected label appear immediately (without requiring an outside click)
+                      requestAnimationFrame(() => inputRef.current?.blur());
                     }}
                   >
                     {u.fullName}

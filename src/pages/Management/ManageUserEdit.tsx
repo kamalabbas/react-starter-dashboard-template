@@ -354,6 +354,18 @@ const ManageUserEdit: React.FC = () => {
     const u: User | undefined = users.find((x: any) => String(x.id) === String(id));
     if (u && u.userProfile) {
       const p = u.userProfile;
+
+      const getNameByUserId = (userId: any) => {
+        const uid = Number(userId) || 0;
+        if (uid <= 0) return "";
+        const found = users.find((x: any) => Number(x?.id) === uid);
+        const prof: any = found?.userProfile;
+        const first = String(prof?.firstName ?? "").trim();
+        const fam = String(prof?.familyName ?? "").trim();
+        const full = `${first} ${fam}`.trim();
+        return full || String(found?.email ?? "").trim();
+      };
+
       setValue("firstName", p.firstName);
       setValue("tempFatherName", p.tempFatherName);
       setValue("familyName", p.familyName);
@@ -409,7 +421,7 @@ const ManageUserEdit: React.FC = () => {
         "spouseList",
         Array.isArray(p.spouseList)
           ? p.spouseList.slice(0, 4).map((s) => ({
-              spouseId: s.spouseId?.toString(),
+              spouseId: s?.spouseId && Number(s.spouseId) > 0 ? String(s.spouseId) : "",
               statusCode: s.statusCode,
               startDate: s.startDate ? s.startDate.slice(0, 10) : "",
               endDate: s.endDate ? s.endDate.slice(0, 10) : "",
@@ -417,14 +429,22 @@ const ManageUserEdit: React.FC = () => {
           : []
       );
 
-      setInitialSpouseLabels(Array.isArray(p.spouseList) ? p.spouseList.slice(0, 4).map((s) => s?.spouseName || "") : []);
+      setInitialSpouseLabels(
+        Array.isArray(p.spouseList)
+          ? p.spouseList.slice(0, 4).map((s) => {
+              const direct = String(s?.spouseName ?? "").trim();
+              if (direct) return direct;
+              return getNameByUserId(s?.spouseId);
+            })
+          : []
+      );
       setValue("civilFamilyGovernorateId", p.civilFamily?.civilFamilyGovernorateId?.toString());
       setValue("civilFamilyDistrictId", p.civilFamily?.civilFamilyDistrictId?.toString());
       setValue("civilFamilyCityId", p.civilFamily?.civilFamilyCityId?.toString());
       setValue("civilFamilyNumber", p.civilFamily?.civilFamilyNumber);
 
-      setInitialFatherLabel(p.father?.parentName || "");
-      setInitialMotherLabel(p.mother?.parentName || "");
+      setInitialFatherLabel(String(p.father?.parentName ?? "").trim() || getNameByUserId(p.father?.parentId));
+      setInitialMotherLabel(String(p.mother?.parentName ?? "").trim() || getNameByUserId(p.mother?.parentId));
 
       const isNoCivil = String(p.civilFamily?.civilFamilyNumber || "") === "-999";
       setValue("hasNoCivilId", isNoCivil);
@@ -435,9 +455,9 @@ const ManageUserEdit: React.FC = () => {
         setValue("civilFamilyNumber", "-999");
       }
 
-      setValue("familyBranchId", p.familyBranch?.id?.toString());
-      setValue("fatherId", p.father?.parentId?.toString());
-      setValue("motherId", p.mother?.parentId?.toString());
+      setValue("familyBranchId", p?.familyBranch?.id && Number(p.familyBranch.id) > 0 ? String(p.familyBranch.id) : "");
+      setValue("fatherId", p?.father?.parentId && Number(p.father.parentId) > 0 ? String(p.father.parentId) : "");
+      setValue("motherId", p?.mother?.parentId && Number(p.mother.parentId) > 0 ? String(p.mother.parentId) : "");
       setProfilePicUrl(p.profilePicUrl || null);
     }
   }, [id, users, setValue]);
