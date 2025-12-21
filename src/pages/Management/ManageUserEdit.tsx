@@ -349,6 +349,38 @@ const ManageUserEdit: React.FC = () => {
     return [toAddr(origin, "ORIGIN"), toAddr(current, "CURRENT")];
   };
 
+  const extractDisplayName = (obj: any) => {
+    if (!obj) return "";
+
+    const direct = String(
+      obj?.parentName ??
+        obj?.spouseName ??
+        obj?.fullName ??
+        obj?.name ??
+        obj?.displayName ??
+        obj?.userName ??
+        obj?.parentFullName ??
+        obj?.spouseFullName ??
+        ""
+    ).trim();
+    if (direct) return direct;
+
+    const first = String(obj?.firstName ?? obj?.parentFirstName ?? obj?.spouseFirstName ?? "").trim();
+    const family = String(obj?.familyName ?? obj?.parentFamilyName ?? obj?.spouseFamilyName ?? "").trim();
+    const combined = `${first} ${family}`.trim();
+    if (combined) return combined;
+
+    const nestedProfile = obj?.userProfile ?? obj?.profile ?? obj?.parentProfile ?? obj?.spouseProfile;
+    if (nestedProfile) {
+      const nf = String(nestedProfile?.firstName ?? "").trim();
+      const nl = String(nestedProfile?.familyName ?? nestedProfile?.lastName ?? "").trim();
+      const nested = `${nf} ${nl}`.trim();
+      if (nested) return nested;
+    }
+
+    return "";
+  };
+
   useEffect(() => {
     if (!id) return;
     const u: User | undefined = users.find((x: any) => String(x.id) === String(id));
@@ -432,7 +464,7 @@ const ManageUserEdit: React.FC = () => {
       setInitialSpouseLabels(
         Array.isArray(p.spouseList)
           ? p.spouseList.slice(0, 4).map((s) => {
-              const direct = String(s?.spouseName ?? "").trim();
+              const direct = extractDisplayName(s);
               if (direct) return direct;
               return getNameByUserId(s?.spouseId);
             })
@@ -443,8 +475,8 @@ const ManageUserEdit: React.FC = () => {
       setValue("civilFamilyCityId", p.civilFamily?.civilFamilyCityId?.toString());
       setValue("civilFamilyNumber", p.civilFamily?.civilFamilyNumber);
 
-      setInitialFatherLabel(String(p.father?.parentName ?? "").trim() || getNameByUserId(p.father?.parentId));
-      setInitialMotherLabel(String(p.mother?.parentName ?? "").trim() || getNameByUserId(p.mother?.parentId));
+      setInitialFatherLabel(extractDisplayName(p.father.parentName) || getNameByUserId(p.father?.parentId));
+      setInitialMotherLabel(extractDisplayName(p.mother.parentName) || getNameByUserId(p.mother?.parentId));
 
       const isNoCivil = String(p.civilFamily?.civilFamilyNumber || "") === "-999";
       setValue("hasNoCivilId", isNoCivil);

@@ -38,7 +38,7 @@ const UserSearchSelect: React.FC<Props> = ({
 
   // Seed label for edit mode
   useEffect(() => {
-    if (initialLabel) setSelectedLabel(initialLabel);
+    if (initialLabel !== undefined) setSelectedLabel(initialLabel);
   }, [initialLabel]);
 
   // If we have results, sync label to the currently-selected id
