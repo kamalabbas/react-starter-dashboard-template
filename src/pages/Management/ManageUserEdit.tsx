@@ -198,22 +198,17 @@ const ManageUserEdit: React.FC = () => {
     LookupDomain.EMPLOYMENT_STATUS,
   ]);
 
-  const toOptions = (items: any[]) =>
-    (Array.isArray(items) ? items : [])
-      .map((x: any) => ({
-        value: String(x.code ?? x.lookupCode ?? x.value ?? ""),
-        label: String(x.name ?? x.label ?? x.displayName ?? x.description ?? x.code ?? x.value ?? ""),
-      }))
-      .filter((o: any) => o.value);
-
-  const genderOptions = toOptions(getLookupDomain(LookupDomain.GENDER) as any);
-  const maritalStatusOptions = toOptions(getLookupDomain(LookupDomain.MARITAL_STATUS) as any);
-  const vitalStatusOptions = toOptions(getLookupDomain(LookupDomain.VITAL_STATUS) as any);
-  const educationStatusOptions = toOptions(getLookupDomain(LookupDomain.EDUCATION_STATUS) as any);
-  const educationTypeOptions = toOptions(getLookupDomain(LookupDomain.EDUCATION_TYPE) as any);
-  const academicLevelOptions = toOptions(getLookupDomain(LookupDomain.ACADEMIC_LEVEL) as any);
-  const instituteLevelOptions = toOptions(getLookupDomain(LookupDomain.INSTITUTE_LEVEL) as any);
-  const employmentStatusOptions = toOptions(getLookupDomain(LookupDomain.EMPLOYMENT_STATUS) as any);
+  const genderOptions = getLookupDomain(LookupDomain.GENDER)?.map((c) => ({ label: c.description, value: c.code }));
+  const maritalOptions = getLookupDomain(LookupDomain.MARITAL_STATUS)?.map((c) => ({ label: c.description, value: c.code }));
+  const vitalStatusOptions = getLookupDomain(LookupDomain.VITAL_STATUS)?.map((c) => ({ label: c.description, value: c.code }));
+  const academicLevelOptions = getLookupDomain(LookupDomain.ACADEMIC_LEVEL)?.map((c) => ({ label: c.description, value: c.code }));
+  const educationTypeOptions = getLookupDomain(LookupDomain.EDUCATION_TYPE)?.map((c) => ({ label: c.description, value: c.code }));
+  const educationStatusOptions = getLookupDomain(LookupDomain.EDUCATION_STATUS)?.map((c) => ({ label: c.description, value: c.code }));
+  const employmentStatusOptions = getLookupDomain(LookupDomain.EMPLOYMENT_STATUS)?.map((c) => ({ label: c.description, value: c.code }));
+  const instituteLevelOptions = getLookupDomain(LookupDomain.INSTITUTE_LEVEL)?.map((c) => ({ label: c.description, value: c.code }));
+  const spouseStatusOptions = getLookupDomain(LookupDomain.MARITAL_STATUS)
+    ?.map((c) => ({ label: c.description, value: c.code }))
+    .filter((s) => s.value !== "SINGLE");
 
   const isNoEducation = (code?: string) => {
     const c = String(code || "").toUpperCase();
@@ -254,24 +249,24 @@ const ManageUserEdit: React.FC = () => {
     const u: User | undefined = users.find((x: any) => String(x.id) === String(id));
     if (u && u.userProfile) {
       const p = u.userProfile;
-      setValue("firstName", p.firstName || "");
-      setValue("tempFatherName", p.tempFatherName || "");
-      setValue("familyName", p.familyName || "");
-      setValue("gender", p.genderCode || "");
-      setValue("dateOfBirth", p.dateOfBirth?.slice(0, 10) || "");
-      setValue("maritalStatus", p.maritalStatusCode || "");
+      setValue("firstName", p.firstName);
+      setValue("tempFatherName", p.tempFatherName);
+      setValue("familyName", p.familyName);
+      setValue("gender", p.genderCode);
+      setValue("dateOfBirth", p.dateOfBirth?.slice(0, 10));
+      setValue("maritalStatus", p.maritalStatusCode);
       setValue("vitalStatus", p.vitalStatusCode || "");
       setValue(
         "educationList",
         Array.isArray(p.educationList) && p.educationList.length > 0
           ? p.educationList.map((e) => ({
-              statusCode: e.statusCode || "",
-              educationTypeCode: e.educationTypeCode || "",
-              academicLevelCode: e.academicLevelCode || "",
-              instituteLevelCode: e.instituteLevelCode || "",
-              degreeTitle: e.degreeTitle || "",
-              major: e.major || "",
-              schoolName: e.schoolName || "",
+              statusCode: e.statusCode,
+              educationTypeCode: e.educationTypeCode,
+              academicLevelCode: e.academicLevelCode,
+              instituteLevelCode: e.instituteLevelCode,
+              degreeTitle: e.degreeTitle,
+              major: e.major,
+              schoolName: e.schoolName,
               startDate: e.startDate ? e.startDate.slice(0, 10) : "",
               endDate: e.endDate ? e.endDate.slice(0, 10) : "",
             }))
@@ -293,12 +288,12 @@ const ManageUserEdit: React.FC = () => {
         "employmentList",
         Array.isArray(p.employmentList) && p.employmentList.length > 0
           ? p.employmentList.map((e) => ({
-              statusCode: e.statusCode || "",
-              workplace: e.workplace || "",
-              companyName: e.companyName || "",
-              occupation: e.occupation || "",
-              position: e.position || "",
-              reasonNotWorking: e.reasonNotWorking || "",
+              statusCode: e.statusCode,
+              workplace: e.workplace,
+              companyName: e.companyName,
+              occupation: e.occupation,
+              position: e.position,
+              reasonNotWorking: e.reasonNotWorking,
               startDate: e.startDate ? e.startDate.slice(0, 10) : "",
               endDate: e.endDate ? e.endDate.slice(0, 10) : "",
             }))
@@ -309,20 +304,20 @@ const ManageUserEdit: React.FC = () => {
         "spouseList",
         Array.isArray(p.spouseList)
           ? p.spouseList.slice(0, 4).map((s) => ({
-              spouseId: s.spouseId?.toString() || "",
-              statusCode: s.statusCode || "",
+              spouseId: s.spouseId?.toString(),
+              statusCode: s.statusCode,
               startDate: s.startDate ? s.startDate.slice(0, 10) : "",
               endDate: s.endDate ? s.endDate.slice(0, 10) : "",
             }))
           : []
       );
-      setValue("civilFamilyGovernorateId", p.civilFamily?.civilFamilyGovernorateId?.toString() || "");
-      setValue("civilFamilyDistrictId", p.civilFamily?.civilFamilyDistrictId?.toString() || "");
-      setValue("civilFamilyCityId", p.civilFamily?.civilFamilyCityId?.toString() || "");
-      setValue("civilFamilyNumber", p.civilFamily?.civilFamilyNumber || "");
-      setValue("familyBranchId", p.familyBranch?.id?.toString() || "");
-      setValue("fatherId", p.father?.parentId?.toString() || "");
-      setValue("motherId", p.mother?.parentId?.toString() || "");
+      setValue("civilFamilyGovernorateId", p.civilFamily?.civilFamilyGovernorateId?.toString());
+      setValue("civilFamilyDistrictId", p.civilFamily?.civilFamilyDistrictId?.toString());
+      setValue("civilFamilyCityId", p.civilFamily?.civilFamilyCityId?.toString());
+      setValue("civilFamilyNumber", p.civilFamily?.civilFamilyNumber);
+      setValue("familyBranchId", p.familyBranch?.id?.toString());
+      setValue("fatherId", p.father?.parentId?.toString());
+      setValue("motherId", p.mother?.parentId?.toString());
       setProfilePicUrl(p.profilePicUrl || null);
     }
   }, [id, users, setValue]);
@@ -398,6 +393,8 @@ const ManageUserEdit: React.FC = () => {
             />
             {errors.familyName && <p className="text-error-500 text-xs mt-1">{errors.familyName.message}</p>}
           </div>
+
+          {/* Gender */}
           <div>
             <label className="block text-sm font-medium text-gray-700 dark:text-gray-200">Gender</label>
             <Controller
@@ -409,6 +406,7 @@ const ManageUserEdit: React.FC = () => {
             />
             {errors.gender && <p className="text-error-500 text-xs mt-1">{errors.gender.message}</p>}
           </div>
+
           <div>
             <label className="block text-sm font-medium text-gray-700 dark:text-gray-200">Date of Birth</label>
             <Controller
@@ -424,7 +422,7 @@ const ManageUserEdit: React.FC = () => {
               name="maritalStatus"
               control={control}
               render={({ field }) => (
-                <Select options={maritalStatusOptions} placeholder="Select marital status" onChange={field.onChange} defaultValue={field.value} />
+                <Select options={maritalOptions} placeholder="Select marital status" onChange={field.onChange} defaultValue={field.value} />
               )}
             />
             {errors.maritalStatus && <p className="text-error-500 text-xs mt-1">{errors.maritalStatus.message}</p>}
