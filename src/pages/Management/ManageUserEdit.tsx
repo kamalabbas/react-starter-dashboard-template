@@ -3,8 +3,6 @@ import { useParams, useNavigate } from "react-router";
 import { useForm, Controller } from "react-hook-form";
 import { yupResolver } from "@hookform/resolvers/yup";
 import * as yup from "yup";
-import { useToastStore } from "@/stores/toastStore";
-import { putData } from "@/services/api";
 import Input from "@/components/form/input/InputField";
 import Select from "@/components/form/Select";
 import DatePicker from "@/components/form/date-picker";
@@ -19,16 +17,104 @@ import { useLookup } from "@/hooks/useLookup";
 import { useCities, useGetLocations } from "@/hooks/useGetLocations";
 import { useGetFamilyBranches } from "@/hooks/useGetFamilyBranches";
 import UserSearchSelect from "@/components/form/UserSearchSelect";
+import { postData } from "@/services/api";
+import { BaseResponse } from "@/interface/baseResponse.interface";
 
 // Expanded schema to match Expo form
+const normalizePassword = (value: unknown) => {
+  if (value == null) return "";
+  return String(value).normalize("NFKC").trim();
+};
+
+const toNullableString = (value: unknown) => {
+  const s = value == null ? "" : String(value);
+  const t = s.trim();
+  return t.length ? t : null;
+};
+
+const toNullablePositiveInt = (value: unknown) => {
+  const n = Number(value);
+  return Number.isFinite(n) && n > 0 ? Math.trunc(n) : null;
+};
+
+const toDateOnlyOrNull = (value: unknown) => {
+  const s = value == null ? "" : String(value).trim();
+  if (!s) return null;
+  // Accept either YYYY-MM-DD or full ISO; always return YYYY-MM-DD
+  return s.length >= 10 ? s.slice(0, 10) : null;
+};
+
+type UploadImageResponse = {
+  profilePicUrl: string;
+};
+
 const schema = yup.object({
   firstName: yup.string().required("First name is required"),
   tempFatherName: yup.string(),
   familyName: yup.string().required("Family name is required"),
+  phoneNumber: yup
+    .string()
+    .nullable()
+    .transform((value, originalValue) => (originalValue === "" ? null : value)),
   gender: yup.string().required("Gender is required"),
   dateOfBirth: yup.string().required("Date of birth is required"),
   maritalStatus: yup.string().required("Marital status is required"),
   vitalStatus: yup.string().required("Vital status is required"),
+  deceasedDate: yup
+    .string()
+    .nullable()
+    .transform((value, originalValue) => (originalValue === "" ? null : value))
+    .when("vitalStatus", {
+      is: (v: unknown) => String(v || "").toUpperCase() === String(VITAL_STATUS.DECEASED).toUpperCase(),
+      then: (s) => s.required("Deceased date is required"),
+      otherwise: (s) => s.nullable(),
+    }),
+  newPassword: yup
+    .string()
+    .nullable()
+    .transform((value, originalValue) => (originalValue === "" ? null : value))
+    .test(
+      "password-strength",
+      "Password must be at least 6 characters and include 1 lowercase, 1 uppercase, 1 number, and 1 symbol",
+      (value) => {
+        if (value == null || String(value).length === 0) return true;
+        const v = String(value);
+        if (v.length < 6) return false;
+        if (!/[a-z]/.test(v)) return false;
+        if (!/[A-Z]/.test(v)) return false;
+        if (!/[0-9]/.test(v)) return false;
+        if (!/[^A-Za-z0-9]/.test(v)) return false;
+        return true;
+      }
+    ),
+  confirmPassword: yup
+    .string()
+    .nullable()
+    .transform((value, originalValue) => (originalValue === "" ? null : value))
+    .test("passwords", "Passwords must match", function (confirm) {
+      const newPassword = this.parent?.newPassword;
+      const newNorm = normalizePassword(newPassword);
+      const confirmNorm = normalizePassword(confirm);
+      const hasNew = newNorm.length > 0;
+      const hasConfirm = confirmNorm.length > 0;
+
+      // If neither is provided, it's valid (both nullable)
+      if (!hasNew && !hasConfirm) return true;
+
+      // If one is provided, require the other
+      if (!hasNew) {
+        return this.createError({ message: "New password is required" });
+      }
+      if (!hasConfirm) {
+        return this.createError({ message: "Confirm password is required" });
+      }
+
+      // Both provided: must match
+      if (confirmNorm !== newNorm) {
+        return this.createError({ message: "Passwords must match" });
+      }
+      return true;
+    }),
   educationList: yup
     .array()
     .of(
@@ -64,20 +150,34 @@ const schema = yup.object({
     .array()
     .of(
       yup.object({
-        line1: yup.string().required("Address line 1 is required"),
-        line2: yup.string().nullable(),
-        city: yup.string().required("City is required"),
-        state: yup.string().required("State is required"),
-        postalCode: yup.string().nullable(),
-        countryId: yup.string().required("Country is required"),
+        line1: yup.string().when("addressTypeCode", {
+          is: (v: unknown) => String(v || "").toUpperCase() === "ORIGIN",
+          then: (s) => s.required("Address line 1 is required"),
+          otherwise: (s) => s.nullable().transform((value, originalValue) => (originalValue === "" ? null : value)),
+        }),
+        line2: yup.string().nullable().transform((value, originalValue) => (originalValue === "" ? null : value)),
+        city: yup.string().when("addressTypeCode", {
+          is: (v: unknown) => String(v || "").toUpperCase() === "ORIGIN",
+          then: (s) => s.required("City is required"),
+          otherwise: (s) => s.nullable().transform((value, originalValue) => (originalValue === "" ? null : value)),
+        }),
+        state: yup.string().when("addressTypeCode", {
+          is: (v: unknown) => String(v || "").toUpperCase() === "ORIGIN",
+          then: (s) => s.required("State is required"),
+          otherwise: (s) => s.nullable().transform((value, originalValue) => (originalValue === "" ? null : value)),
+        }),
+        postalCode: yup.string().nullable().transform((value, originalValue) => (originalValue === "" ? null : value)),
+        countryId: yup.string().when("addressTypeCode", {
+          is: (v: unknown) => String(v || "").toUpperCase() === "ORIGIN",
+          then: (s) => s.required("Country is required"),
+          otherwise: (s) => s.nullable().transform((value, originalValue) => (originalValue === "" ? null : value)),
+        }),
         addressTypeCode: yup.string().oneOf(["ORIGIN", "CURRENT"], "Invalid address type").required("Address type is required"),
       })
     )
-    .test("origin-current-only", "Origin and Current addresses are required", (value) => {
+    .test("origin-entry", "Origin address entry is required", (value) => {
       const list = Array.isArray(value) ? value : [];
-      if (list.length !== 2) return false;
-      const types = list.map((a) => a?.addressTypeCode).filter(Boolean);
-      return types.includes("ORIGIN") && types.includes("CURRENT");
+      return list.some((a) => String(a?.addressTypeCode || "").toUpperCase() === "ORIGIN");
     }),
   spouseList: yup
     .array()
@@ -111,12 +211,13 @@ const ManageUserEdit: React.FC = () => {
   const { id } = useParams();
   const navigate = useNavigate();
   const { data: users = [], isLoading } = useUsersList();
-  const showToast = useToastStore((s) => s.showToast);
   const [profilePic, setProfilePic] = useState<File | null>(null);
   const [profilePicUrl, setProfilePicUrl] = useState<string | null>(null);
   const [initialFatherLabel, setInitialFatherLabel] = useState<string>("");
   const [initialMotherLabel, setInitialMotherLabel] = useState<string>("");
   const [initialSpouseLabels, setInitialSpouseLabels] = useState<string[]>([]);
+  const [initialFamilyBranchName, setInitialFamilyBranchName] = useState<string>("");
+  const [initialFamilyBranchCountryId, setInitialFamilyBranchCountryId] = useState<number>(0);
 
   const {
     control,
@@ -130,10 +231,14 @@ const ManageUserEdit: React.FC = () => {
       firstName: "",
       tempFatherName: "",
       familyName: "",
+      phoneNumber: "",
       gender: "",
       dateOfBirth: "",
       maritalStatus: "",
       vitalStatus: "",
+      deceasedDate: "",
+      newPassword: "",
+      confirmPassword: "",
       educationList: [
         {
           statusCode: "",
@@ -192,11 +297,21 @@ const ManageUserEdit: React.FC = () => {
   });
 
   const maritalStatus = watch("maritalStatus");
+  const vitalStatus = watch("vitalStatus");
   const hasNoCivilId = watch("hasNoCivilId");
   const selectedGender = watch("gender");
   const spouseSearchGender = selectedGender === GenderCode.MALE ? GenderCode.FEMALE : GenderCode.MALE;
   const civilFamilyNumberValueRaw = watch("civilFamilyNumber");
   const civilFamilyNumberValue = civilFamilyNumberValueRaw == null ? undefined : String(civilFamilyNumberValueRaw);
+
+  useEffect(() => {
+    const isDeceased = String(vitalStatus || "").toUpperCase() === String(VITAL_STATUS.DECEASED).toUpperCase();
+    if (!isDeceased) {
+      const current = String(watch("deceasedDate") ?? "");
+      if (current) setValue("deceasedDate", "", { shouldDirty: true });
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [vitalStatus, setValue]);
 
   // get Locations (countries/governorates/districts)
   const { data: locationsResp } = useGetLocations([RegionTypeList.COUNTRIES, RegionTypeList.GOVERNORATES, RegionTypeList.DISTRICTS]);
@@ -336,7 +451,7 @@ const ManageUserEdit: React.FC = () => {
   const normalizeAddresses = (addressList: any) => {
     const list = Array.isArray(addressList) ? addressList : [];
     const origin = list.find((a) => a?.addressTypeCode === "ORIGIN") ?? {};
-    const current = list.find((a) => a?.addressTypeCode === "CURRENT") ?? {};
+    const current = list.find((a) => a?.addressTypeCode === "CURRENT");
     const toAddr = (a: any, addressTypeCode: "ORIGIN" | "CURRENT") => ({
       line1: a?.line1 || "",
       line2: a?.line2 || "",
@@ -346,7 +461,46 @@ const ManageUserEdit: React.FC = () => {
       countryId: a?.countryId?.toString?.() || a?.countryId || "",
       addressTypeCode,
     });
-    return [toAddr(origin, "ORIGIN"), toAddr(current, "CURRENT")];
+
+    // Always keep ORIGIN; include CURRENT only if it exists in backend/form.
+    const result: any[] = [toAddr(origin, "ORIGIN")];
+    if (current) result.push(toAddr(current, "CURRENT"));
+    return result;
+  };
+
+  const ensureOriginFirst = (addresses: any[]) => {
+    const list = Array.isArray(addresses) ? addresses : [];
+    const origin = list.find((a) => String(a?.addressTypeCode || "").toUpperCase() === "ORIGIN");
+    const current = list.find((a) => String(a?.addressTypeCode || "").toUpperCase() === "CURRENT");
+    const originAddr =
+      origin ??
+      ({
+        line1: "",
+        line2: "",
+        city: "",
+        state: "",
+        postalCode: "",
+        countryId: "",
+        addressTypeCode: "ORIGIN",
+      } as const);
+
+    const result: any[] = [originAddr];
+    if (current) result.push(current);
+    return result;
+  };
+
+  const extractFamilyBranchId = (profile: any) => {
+    const raw =
+      profile?.familyBranchId ??
+      profile?.familyBranchID ??
+      profile?.familyBranch_id ??
+      profile?.familyBranch?.id ??
+      profile?.familyBranch?.branchId ??
+      profile?.familyBranch?.familyBranchId ??
+      profile?.civilFamily?.familyBranchId;
+
+    const n = Number(raw);
+    return Number.isFinite(n) && n > 0 ? String(n) : "";
   };
 
   const extractDisplayName = (obj: any) => {
@@ -401,10 +555,15 @@ const ManageUserEdit: React.FC = () => {
       setValue("firstName", p.firstName);
       setValue("tempFatherName", p.tempFatherName);
       setValue("familyName", p.familyName);
+      setValue(
+        "phoneNumber",
+        (p as any)?.phoneNumber ?? (p as any)?.mobileNumber ?? (p as any)?.phone ?? (p as any)?.mobile ?? ""
+      );
       setValue("gender", p.genderCode);
       setValue("dateOfBirth", p.dateOfBirth?.slice(0, 10));
       setValue("maritalStatus", p.maritalStatusCode);
       setValue("vitalStatus", p.vitalStatusCode || "");
+      setValue("deceasedDate", (p as any)?.deceasedDate ? String((p as any).deceasedDate).slice(0, 10) : "");
       setValue(
         "educationList",
         Array.isArray(p.educationList) && p.educationList.length > 0
@@ -475,8 +634,8 @@ const ManageUserEdit: React.FC = () => {
       setValue("civilFamilyCityId", p.civilFamily?.civilFamilyCityId?.toString());
       setValue("civilFamilyNumber", p.civilFamily?.civilFamilyNumber);
 
-      setInitialFatherLabel(extractDisplayName(p.father.parentName) || getNameByUserId(p.father?.parentId));
-      setInitialMotherLabel(extractDisplayName(p.mother.parentName) || getNameByUserId(p.mother?.parentId));
+      setInitialFatherLabel(extractDisplayName(p.father) || getNameByUserId(p.father?.parentId));
+      setInitialMotherLabel(extractDisplayName(p.mother) || getNameByUserId(p.mother?.parentId));
 
       const isNoCivil = String(p.civilFamily?.civilFamilyNumber || "") === "-999";
       setValue("hasNoCivilId", isNoCivil);
@@ -487,12 +646,40 @@ const ManageUserEdit: React.FC = () => {
         setValue("civilFamilyNumber", "-999");
       }
 
-      setValue("familyBranchId", p?.familyBranch?.id && Number(p.familyBranch.id) > 0 ? String(p.familyBranch.id) : "");
+      // Family Branch prefill: backend sometimes returns familyBranch with id=0 but provides familyBranchId separately.
+      setInitialFamilyBranchName(String(p?.familyBranch?.name ?? "").trim());
+      setInitialFamilyBranchCountryId(Number(p?.familyBranch?.countryId) || 0);
+      setValue("familyBranchId", extractFamilyBranchId(p));
       setValue("fatherId", p?.father?.parentId && Number(p.father.parentId) > 0 ? String(p.father.parentId) : "");
       setValue("motherId", p?.mother?.parentId && Number(p.mother.parentId) > 0 ? String(p.mother.parentId) : "");
       setProfilePicUrl(p.profilePicUrl || null);
     }
   }, [id, users, setValue]);
+
+  useEffect(() => {
+    // If we didn't get a numeric id from the profile, try resolving by name once the branches list is available.
+    const current = String(watch("familyBranchId") ?? "").trim();
+    if (current) return;
+    const name = initialFamilyBranchName.trim();
+    if (!name) return;
+    if (!Array.isArray(familyBranchesList) || familyBranchesList.length === 0) return;
+
+    const byName = familyBranchesList.find((b: any) => String(b?.name ?? "").trim().toLowerCase() === name.toLowerCase());
+    if (byName?.id && Number(byName.id) > 0) {
+      setValue("familyBranchId", String(byName.id), { shouldDirty: false });
+      return;
+    }
+
+    // Fallback: match on countryId if branch names don't exist (rare). Only if it produces a single unambiguous option.
+    const cid = Number(initialFamilyBranchCountryId) || 0;
+    if (cid > 0) {
+      const matches = familyBranchesList.filter((b: any) => Number(b?.countryId) === cid);
+      if (matches.length === 1 && matches[0]?.id && Number(matches[0].id) > 0) {
+        setValue("familyBranchId", String(matches[0].id), { shouldDirty: false });
+      }
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [familyBranchesList, initialFamilyBranchName, initialFamilyBranchCountryId, setValue]);
 
   useEffect(() => {
     // Mirror Expo behavior:
@@ -520,28 +707,148 @@ const ManageUserEdit: React.FC = () => {
   }, [maritalStatus, setValue]);
 
   const onSubmit = async (data: any) => {
-    try {
-      // Prepare form data for API
-      const formData = new FormData();
-      Object.entries(data).forEach(([key, value]) => {
-        formData.append(key, value as any);
-      });
-      if (profilePic) formData.append("profilePic", profilePic);
+    const userId = Number(id);
+    if (!Number.isFinite(userId) || userId <= 0) {
+      console.error("[ManageUserEdit] Missing/invalid userId", id);
+      return;
+    }
 
-      const payload: any = { userId: id, ...data };
-      if (payload.hasNoCivilId) {
-        payload.civilFamilyGovernorateId = null;
-        payload.civilFamilyDistrictId = null;
-        payload.civilFamilyCityId = null;
-        payload.civilFamilyNumber = "-999";
+    const resolveCountryId = (raw: unknown) => {
+      const s = raw == null ? "" : String(raw).trim();
+      if (!s) return null;
+      if (/^\d+$/.test(s)) {
+        const n = Number(s);
+        return Number.isFinite(n) && n > 0 ? n : null;
       }
 
-      await putData(`/FamilyTreeBe/UpdateUser`, payload);
-      showToast("Saved successfully", "success");
-      navigate("/manage-users");
-    } catch (err) {
-      showToast("Failed to save user", "error");
+      const iso = s.toUpperCase();
+      const match = (Array.isArray(countriesList) ? countriesList : []).find((c: any) => {
+        const cIso = String(
+          c?.iso2 ?? c?.isoCode2 ?? c?.isoCode ?? c?.alpha2 ?? c?.countryIso2 ?? c?.countryCode ?? c?.code ?? ""
+        ).toUpperCase();
+        return cIso === iso;
+      });
+
+      const cid = Number(match?.id ?? match?.countryId ?? match?.value);
+      return Number.isFinite(cid) && cid > 0 ? cid : null;
+    };
+
+    // 1) Upload image (if changed)
+    if (profilePic) {
+      const formData = new FormData();
+      formData.append("profilePicture", profilePic, profilePic.name);
+      formData.append("userId", String(userId));
+
+      const uploadRes = await postData<FormData, BaseResponse<UploadImageResponse>>(
+        `/FamilyTreeBe/UploadProfilePicture/${userId}`,
+        formData,
+        { headers: { "Content-Type": "multipart/form-data" } }
+      );
+
+      const newUrl = uploadRes?.data?.profilePicUrl;
+      if (newUrl) {
+        setProfilePicUrl(newUrl);
+        setProfilePic(null);
+      }
     }
+
+    // 2) Update user
+    const spouseList = (Array.isArray(data?.spouseList) ? data.spouseList : [])
+      .map((s: any) => {
+        const sid = toNullablePositiveInt(s?.spouseId);
+        if (!sid) return null;
+        return {
+          spouseId: sid,
+          statusCode: String(s?.statusCode ?? "").trim() || null,
+          startDate: toDateOnlyOrNull(s?.startDate),
+          endDate: toDateOnlyOrNull(s?.endDate),
+        };
+      })
+      .filter(Boolean);
+
+    const addressList = (Array.isArray(data?.addressList) ? data.addressList : [])
+      .map((a: any) => {
+        const cid = resolveCountryId(a?.countryId);
+        return {
+          id: 0,
+          countryId: cid,
+          addressTypeCode: String(a?.addressTypeCode ?? "").trim() || null,
+          postalCode: toNullableString(a?.postalCode),
+          state: toNullableString(a?.state),
+          city: toNullableString(a?.city),
+          line2: toNullableString(a?.line2),
+          line1: toNullableString(a?.line1),
+        };
+      })
+      .filter((a: any) => a.addressTypeCode);
+
+    const employmentList = (Array.isArray(data?.employmentList) ? data.employmentList : [])
+      .map((e: any) => ({
+        id: 0,
+        statusCode: String(e?.statusCode ?? "").trim() || null,
+        workplace: toNullableString(e?.workplace),
+        companyName: toNullableString(e?.companyName),
+        occupation: toNullableString(e?.occupation),
+        position: toNullableString(e?.position),
+        reasonNotWorking: toNullableString(e?.reasonNotWorking),
+        startDate: toDateOnlyOrNull(e?.startDate),
+        endDate: toDateOnlyOrNull(e?.endDate),
+      }))
+      .filter((e: any) => e.statusCode);
+
+    const educationList = (Array.isArray(data?.educationList) ? data.educationList : [])
+      .map((e: any) => ({
+        id: 0,
+        statusCode: String(e?.statusCode ?? "").trim() || null,
+        educationTypeCode: toNullableString(e?.educationTypeCode),
+        academicLevelCode: toNullableString(e?.academicLevelCode),
+        instituteLevelCode: toNullableString(e?.instituteLevelCode),
+        degreeTitle: toNullableString(e?.degreeTitle),
+        major: toNullableString(e?.major),
+        schoolName: toNullableString(e?.schoolName),
+        startDate: toDateOnlyOrNull(e?.startDate),
+        endDate: toDateOnlyOrNull(e?.endDate),
+      }))
+      .filter((e: any) => e.statusCode);
+
+    const updatePayload: any = {
+      userId,
+      newPassword: toNullableString(data?.newPassword),
+      confirmPassword: toNullableString(data?.confirmPassword),
+      firstName: String(data?.firstName ?? "").trim(),
+      familyName: String(data?.familyName ?? "").trim(),
+      genderCode: String(data?.gender ?? "").trim(),
+      phoneNumber: toNullableString(data?.phoneNumber),
+      dateOfBirth: String(data?.dateOfBirth ?? "").trim(),
+      maritalStatusCode: String(data?.maritalStatus ?? "").trim(),
+      familyBranchId: toNullablePositiveInt(data?.familyBranchId),
+      civilFamilyNumber: toNullableString(data?.civilFamilyNumber),
+      civilFamilyCityId: toNullablePositiveInt(data?.civilFamilyCityId),
+      civilFamilyDistrictId: toNullablePositiveInt(data?.civilFamilyDistrictId),
+      civilFamilyGovernorateId: toNullablePositiveInt(data?.civilFamilyGovernorateId),
+      vitalStatusCode: String(data?.vitalStatus ?? "").trim(),
+      deceasedDate:
+        String(data?.vitalStatus ?? "").toUpperCase() === String(VITAL_STATUS.DECEASED).toUpperCase()
+          ? toDateOnlyOrNull(data?.deceasedDate)
+          : null,
+      statusCode: "ACTIVE",
+      fatherId: toNullablePositiveInt(data?.fatherId),
+      motherId: toNullablePositiveInt(data?.motherId),
+      spouseList,
+      addressList,
+      employmentList,
+      educationList,
+    };
+
+    if (data?.hasNoCivilId) {
+      updatePayload.civilFamilyGovernorateId = null;
+      updatePayload.civilFamilyDistrictId = null;
+      updatePayload.civilFamilyCityId = null;
+      updatePayload.civilFamilyNumber = "-999";
+    }
+
+    console.log("[ManageUserEdit] UpdateUser payload", updatePayload);
+    await postData<typeof updatePayload, BaseResponse<any>>("/Admin/UpdateUser", updatePayload);
   };
 
   if (isLoading) return <div className="p-6">Loading...</div>;
@@ -594,6 +901,23 @@ const ManageUserEdit: React.FC = () => {
             {errors.familyName && <p className="text-error-500 text-xs mt-1">{errors.familyName.message}</p>}
           </div>
 
+          <div>
+            <label className="block text-sm font-medium text-gray-700 dark:text-gray-200">Phone Number</label>
+            <Controller
+              name="phoneNumber"
+              control={control}
+              render={({ field }) => (
+                <Input
+                  {...field}
+                  placeholder="Phone number"
+                  value={field.value ?? ""}
+                  error={!!errors.phoneNumber}
+                />
+              )}
+            />
+            {errors.phoneNumber && <p className="text-error-500 text-xs mt-1">{errors.phoneNumber.message as any}</p>}
+          </div>
+
           {/* Gender */}
           <div>
             <label className="block text-sm font-medium text-gray-700 dark:text-gray-200">Gender</label>
@@ -612,7 +936,24 @@ const ManageUserEdit: React.FC = () => {
             <Controller
               name="dateOfBirth"
               control={control}
-              render={({ field }) => <Input {...field} type="date" placeholder="YYYY-MM-DD" error={!!errors.dateOfBirth} />}
+              render={({ field }) => (
+                <DatePicker
+                  id="date-of-birth"
+                  defaultDate={field.value || ""}
+                  placeholder="YYYY-MM-DD"
+                  onChange={(dates) => {
+                    const d = Array.isArray(dates) && dates[0] ? dates[0] : null;
+                    if (!d) {
+                      field.onChange("");
+                      return;
+                    }
+                    const yyyy = d.getFullYear();
+                    const mm = String(d.getMonth() + 1).padStart(2, "0");
+                    const dd = String(d.getDate()).padStart(2, "0");
+                    field.onChange(`${yyyy}-${mm}-${dd}`);
+                  }}
+                />
+              )}
             />
             {errors.dateOfBirth && <p className="text-error-500 text-xs mt-1">{errors.dateOfBirth.message}</p>}
           </div>
@@ -643,10 +984,78 @@ const ManageUserEdit: React.FC = () => {
             />
             {errors.vitalStatus && <p className="text-error-500 text-xs mt-1">{errors.vitalStatus.message}</p>}
           </div>
+
+          {String(vitalStatus || "").toUpperCase() === String(VITAL_STATUS.DECEASED).toUpperCase() && (
+            <div>
+              <label className="block text-sm font-medium text-gray-700 dark:text-gray-200">Deceased Date</label>
+              <Controller
+                name="deceasedDate"
+                control={control}
+                render={({ field }) => (
+                  <DatePicker
+                    id="deceased-date"
+                    defaultDate={field.value || ""}
+                    placeholder="YYYY-MM-DD"
+                    onChange={(dates) => {
+                      const d = Array.isArray(dates) && dates[0] ? dates[0] : null;
+                      if (!d) {
+                        field.onChange("");
+                        return;
+                      }
+                      const yyyy = d.getFullYear();
+                      const mm = String(d.getMonth() + 1).padStart(2, "0");
+                      const dd = String(d.getDate()).padStart(2, "0");
+                      field.onChange(`${yyyy}-${mm}-${dd}`);
+                    }}
+                  />
+                )}
+              />
+              {(errors as any)?.deceasedDate && <p className="text-error-500 text-xs mt-1">{(errors as any).deceasedDate.message}</p>}
+            </div>
+          )}
+
+          <div>
+            <label className="block text-sm font-medium text-gray-700 dark:text-gray-200">New Password</label>
+            <Controller
+              name="newPassword"
+              control={control}
+              render={({ field }) => (
+                <Input
+                  {...field}
+                  type="password"
+                  placeholder="New password"
+                  value={field.value ?? ""}
+                  error={!!errors.newPassword}
+                />
+              )}
+            />
+            {errors.newPassword && <p className="text-error-500 text-xs mt-1">{errors.newPassword.message as any}</p>}
+          </div>
+
+          <div>
+            <label className="block text-sm font-medium text-gray-700 dark:text-gray-200">Confirm Password</label>
+            <Controller
+              name="confirmPassword"
+              control={control}
+              render={({ field }) => (
+                <Input
+                  {...field}
+                  type="password"
+                  placeholder="Confirm password"
+                  value={field.value ?? ""}
+                  error={!!errors.confirmPassword}
+                />
+              )}
+            />
+            {errors.confirmPassword && <p className="text-error-500 text-xs mt-1">{errors.confirmPassword.message as any}</p>}
+          </div>
         </div>
         {/* Education Section */}
         <div>
           <h3 className="font-semibold text-lg mb-2 text-gray-900 dark:text-white">Education</h3>
+          {(errors as any)?.educationList?.message && (
+            <p className="text-error-500 text-xs mt-1">{(errors as any).educationList.message}</p>
+          )}
           <Controller
             name="educationList"
             control={control}
@@ -675,6 +1084,9 @@ const ManageUserEdit: React.FC = () => {
                           field.onChange(arr);
                         }}
                       />
+                      {(errors as any)?.educationList?.[idx]?.statusCode && (
+                        <p className="text-error-500 text-xs mt-1">{(errors as any).educationList[idx].statusCode.message}</p>
+                      )}
                     </div>
                     {!isNoEducation(edu.statusCode) && (
                       <>
@@ -802,6 +1214,9 @@ const ManageUserEdit: React.FC = () => {
         {/* Employment Section */}
         <div>
           <h3 className="font-semibold text-lg mb-2 text-gray-900 dark:text-white">Employment</h3>
+          {(errors as any)?.employmentList?.message && (
+            <p className="text-error-500 text-xs mt-1">{(errors as any).employmentList.message}</p>
+          )}
           <Controller
             name="employmentList"
             control={control}
@@ -830,6 +1245,9 @@ const ManageUserEdit: React.FC = () => {
                           field.onChange(arr);
                         }}
                       />
+                      {(errors as any)?.employmentList?.[idx]?.statusCode && (
+                        <p className="text-error-500 text-xs mt-1">{(errors as any).employmentList[idx].statusCode.message}</p>
+                      )}
                     </div>
                     {!isNotWorking(emp.statusCode) ? (
                       <>
@@ -934,12 +1352,59 @@ const ManageUserEdit: React.FC = () => {
         {/* Address Section */}
         <div>
           <h3 className="font-semibold text-lg mb-2 text-gray-900 dark:text-white">Address</h3>
+          {(errors as any)?.addressList?.message && (
+            <p className="text-error-500 text-xs mt-1">{(errors as any).addressList.message}</p>
+          )}
           <Controller
             name="addressList"
             control={control}
             render={({ field }) => (
               <div>
-                {(Array.isArray(field.value) ? field.value : normalizeAddresses([])).map((addr: any, idx: number) => (
+                {(() => {
+                  const list = ensureOriginFirst(Array.isArray(field.value) ? field.value : normalizeAddresses([]));
+                  const hasCurrent = list.some((a) => String(a?.addressTypeCode || "").toUpperCase() === "CURRENT");
+                  return (
+                    <div className="flex items-center justify-end mb-2">
+                      {!hasCurrent ? (
+                        <button
+                          type="button"
+                          className="px-3 py-1 rounded bg-primary-600 dark:bg-primary-400 text-white text-sm font-semibold"
+                          onClick={() => {
+                            const origin = list.find((a) => String(a?.addressTypeCode || "").toUpperCase() === "ORIGIN");
+                            const next = ensureOriginFirst([
+                              origin,
+                              {
+                                line1: "",
+                                line2: "",
+                                city: "",
+                                state: "",
+                                postalCode: "",
+                                countryId: "",
+                                addressTypeCode: "CURRENT",
+                              },
+                            ]);
+                            field.onChange(next);
+                          }}
+                        >
+                          Add Current Address
+                        </button>
+                      ) : (
+                        <button
+                          type="button"
+                          className="px-3 py-1 rounded bg-gray-200 dark:bg-gray-700 text-gray-800 dark:text-gray-200 text-sm font-semibold"
+                          onClick={() => {
+                            const origin = list.find((a) => String(a?.addressTypeCode || "").toUpperCase() === "ORIGIN");
+                            field.onChange(ensureOriginFirst([origin]));
+                          }}
+                        >
+                          Remove Current Address
+                        </button>
+                      )}
+                    </div>
+                  );
+                })()}
+
+                {ensureOriginFirst(Array.isArray(field.value) ? field.value : normalizeAddresses([])).map((addr: any, idx: number) => (
                   <div key={idx} className="mb-4 p-3 border rounded bg-gray-50 dark:bg-slate-800">
                     <div className="mb-3 text-sm font-semibold text-gray-800 dark:text-gray-100">
                       {addr.addressTypeCode === "CURRENT" ? "Current Address" : "Origin Address"}
@@ -955,6 +1420,9 @@ const ManageUserEdit: React.FC = () => {
                             field.onChange(arr);
                           }}
                         />
+                        {(errors as any)?.addressList?.[idx]?.line1 && (
+                          <p className="text-error-500 text-xs mt-1">{(errors as any).addressList[idx].line1.message}</p>
+                        )}
                       </div>
                       <div>
                         <label className="block text-sm font-medium text-gray-700 dark:text-gray-200 mb-1">Line 2</label>
@@ -977,6 +1445,9 @@ const ManageUserEdit: React.FC = () => {
                             field.onChange(arr);
                           }}
                         />
+                        {(errors as any)?.addressList?.[idx]?.city && (
+                          <p className="text-error-500 text-xs mt-1">{(errors as any).addressList[idx].city.message}</p>
+                        )}
                       </div>
                       <div>
                         <label className="block text-sm font-medium text-gray-700 dark:text-gray-200 mb-1">State</label>
@@ -988,6 +1459,9 @@ const ManageUserEdit: React.FC = () => {
                             field.onChange(arr);
                           }}
                         />
+                        {(errors as any)?.addressList?.[idx]?.state && (
+                          <p className="text-error-500 text-xs mt-1">{(errors as any).addressList[idx].state.message}</p>
+                        )}
                       </div>
                       <div>
                         <label className="block text-sm font-medium text-gray-700 dark:text-gray-200 mb-1">Postal Code</label>
@@ -1015,6 +1489,9 @@ const ManageUserEdit: React.FC = () => {
                             field.onChange(arr);
                           }}
                         />
+                        {(errors as any)?.addressList?.[idx]?.countryId && (
+                          <p className="text-error-500 text-xs mt-1">{(errors as any).addressList[idx].countryId.message}</p>
+                        )}
                       </div>
                     </div>
                   </div>
@@ -1088,6 +1565,9 @@ const ManageUserEdit: React.FC = () => {
                               field.onChange(arr);
                             }}
                           />
+                          {(errors as any)?.spouseList?.[idx]?.endDate && (
+                            <p className="text-error-500 text-xs mt-1">{(errors as any).spouseList[idx].endDate.message}</p>
+                          )}
                         </div>
                       )}
                     </div>
