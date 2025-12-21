@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from "react";
+import React, { useEffect, useMemo, useState } from "react";
 import { useParams, useNavigate } from "react-router";
 import { useForm, Controller } from "react-hook-form";
 import { yupResolver } from "@hookform/resolvers/yup";
@@ -13,9 +13,12 @@ import FileInput from "@/components/form/input/FileInput";
 
 import useUsersList from "@/hooks/useUsersList";
 import { User } from "@/interface/user.interface";
-import { GenderCode, MaritalStatusCode, VITAL_STATUS } from "@/interface/enums";
+import { GenderCode, MaritalStatusCode, RegionTypeList, VITAL_STATUS } from "@/interface/enums";
 import { LookupDomain } from "@/interface/enums";
 import { useLookup } from "@/hooks/useLookup";
+import { useCities, useGetLocations } from "@/hooks/useGetLocations";
+import { useGetFamilyBranches } from "@/hooks/useGetFamilyBranches";
+import UserSearchSelect from "@/components/form/UserSearchSelect";
 
 // Expanded schema to match Expo form
 const schema = yup.object({
@@ -111,6 +114,9 @@ const ManageUserEdit: React.FC = () => {
   const showToast = useToastStore((s) => s.showToast);
   const [profilePic, setProfilePic] = useState<File | null>(null);
   const [profilePicUrl, setProfilePicUrl] = useState<string | null>(null);
+  const [initialFatherLabel, setInitialFatherLabel] = useState<string>("");
+  const [initialMotherLabel, setInitialMotherLabel] = useState<string>("");
+  const [initialSpouseLabels, setInitialSpouseLabels] = useState<string[]>([]);
 
   const {
     control,
@@ -186,6 +192,86 @@ const ManageUserEdit: React.FC = () => {
   });
 
   const maritalStatus = watch("maritalStatus");
+  const hasNoCivilId = watch("hasNoCivilId");
+  const selectedGender = watch("gender");
+  const spouseSearchGender = selectedGender === GenderCode.MALE ? GenderCode.FEMALE : GenderCode.MALE;
+  const civilFamilyNumberValueRaw = watch("civilFamilyNumber");
+  const civilFamilyNumberValue = civilFamilyNumberValueRaw == null ? undefined : String(civilFamilyNumberValueRaw);
+
+  // get Locations (countries/governorates/districts)
+  const { data: locationsResp } = useGetLocations([RegionTypeList.COUNTRIES, RegionTypeList.GOVERNORATES, RegionTypeList.DISTRICTS]);
+  const countriesList: any[] = Array.isArray(locationsResp?.data?.countries) ? (locationsResp?.data?.countries as any[]) : [];
+
+  // Origin country drives civil locations & family branches (same as Expo)
+  const selectedOriginCountryId = watch("addressList.0.countryId");
+  const selectedIso = useMemo(() => {
+    const raw = String(selectedOriginCountryId ?? "").trim();
+    if (!raw) return "";
+    if (/^[A-Za-z]{2}$/.test(raw)) return raw.toUpperCase();
+    const countries = (locationsResp?.data?.countries ?? []) as any[];
+    const selected = countries.find((c) => String(c?.id) === raw);
+    return String(selected?.iso2 ?? "").toUpperCase();
+  }, [selectedOriginCountryId, locationsResp?.data?.countries]);
+
+  const selectedCivilGovId = watch("civilFamilyGovernorateId");
+  const selectedCivilDistrictId = watch("civilFamilyDistrictId");
+
+  const { data: citiesList = [], isFetching: isFetchingCities } = useCities(
+    selectedIso,
+    Number(selectedCivilGovId) || 0,
+    Number(selectedCivilDistrictId) || 0
+  );
+
+  const { data: familyBranchesResp } = useGetFamilyBranches(selectedIso);
+  const familyBranchesList: any[] = (() => {
+    const d = familyBranchesResp?.data as any;
+    if (!d) return [];
+    if (Array.isArray(d.familyBranchList)) return d.familyBranchList;
+    if (Array.isArray(d)) return d;
+    return [];
+  })();
+
+  const allCountryOptions = (Array.isArray(countriesList) ? countriesList : [])
+    .map((c: any) => {
+      const iso2 = String(
+        c?.iso2 ??
+          c?.isoCode2 ??
+          c?.isoCode ??
+          c?.alpha2 ??
+          c?.countryIso2 ??
+          c?.countryCode ??
+          c?.code ??
+          ""
+      ).toUpperCase();
+      const name =
+        c?.name ??
+        c?.label ??
+        c?.countryName ??
+        c?.description ??
+        c?.englishName ??
+        c?.nameEn ??
+        iso2;
+      const id = c?.id ?? c?.value ?? c?.countryId ?? c?.countryID ?? c?.country_id;
+      const value = id != null && String(id) !== "" ? String(id) : iso2 || String(name || "");
+      return { value, label: String(name || value), iso2 };
+    })
+    .filter((o: any) => String(o.value || "").trim().length > 0);
+
+  const originCountryOptions = (allCountryOptions.length
+    ? allCountryOptions
+    : [
+        { value: "LB", label: "Lebanon", iso2: "LB" },
+        { value: "SY", label: "Syria", iso2: "SY" },
+      ]
+  ).filter((c: any) => ["LB", "SY"].includes(String(c.iso2).toUpperCase()));
+
+  // IMPORTANT: current address MUST show ALL countries from API (no filter)
+  const currentCountryOptions = allCountryOptions.length
+    ? allCountryOptions
+    : [
+        { value: "LB", label: "Lebanon", iso2: "LB" },
+        { value: "SY", label: "Syria", iso2: "SY" },
+      ];
 
   const { getDomain: getLookupDomain } = useLookup([
     LookupDomain.GENDER,
@@ -198,18 +284,37 @@ const ManageUserEdit: React.FC = () => {
     LookupDomain.EMPLOYMENT_STATUS,
   ]);
 
-  const genderOptions = getLookupDomain(LookupDomain.GENDER)?.map((c) => ({ label: c.description, value: c.code }));
-  const maritalOptions = getLookupDomain(LookupDomain.MARITAL_STATUS)?.map((c) => ({ label: c.description, value: c.code }));
-  const vitalStatusOptions = getLookupDomain(LookupDomain.VITAL_STATUS)?.map((c) => ({ label: c.description, value: c.code }));
-  const academicLevelOptions = getLookupDomain(LookupDomain.ACADEMIC_LEVEL)?.map((c) => ({ label: c.description, value: c.code }));
-  const educationTypeOptions = getLookupDomain(LookupDomain.EDUCATION_TYPE)?.map((c) => ({ label: c.description, value: c.code }));
-  const educationStatusOptions = getLookupDomain(LookupDomain.EDUCATION_STATUS)?.map((c) => ({ label: c.description, value: c.code }));
-  const employmentStatusOptions = getLookupDomain(LookupDomain.EMPLOYMENT_STATUS)?.map((c) => ({ label: c.description, value: c.code }));
-  const instituteLevelOptions = getLookupDomain(LookupDomain.INSTITUTE_LEVEL)?.map((c) => ({ label: c.description, value: c.code }));
-  const spouseStatusOptions = getLookupDomain(LookupDomain.MARITAL_STATUS)
-    ?.map((c) => ({ label: c.description, value: c.code }))
-    .filter((s) => s.value !== "SINGLE");
+  const genderOptions = (getLookupDomain(LookupDomain.GENDER) ?? []).map((c: any) => ({ label: c.description, value: c.code }));
+  const maritalOptions = (getLookupDomain(LookupDomain.MARITAL_STATUS) ?? []).map((c: any) => ({ label: c.description, value: c.code }));
+  const vitalStatusOptions = (getLookupDomain(LookupDomain.VITAL_STATUS) ?? []).map((c: any) => ({ label: c.description, value: c.code }));
+  const academicLevelOptions = (getLookupDomain(LookupDomain.ACADEMIC_LEVEL) ?? []).map((c: any) => ({ label: c.description, value: c.code }));
+  const educationTypeOptions = (getLookupDomain(LookupDomain.EDUCATION_TYPE) ?? []).map((c: any) => ({ label: c.description, value: c.code }));
+  const educationStatusOptions = (getLookupDomain(LookupDomain.EDUCATION_STATUS) ?? []).map((c: any) => ({ label: c.description, value: c.code }));
+  const employmentStatusOptions = (getLookupDomain(LookupDomain.EMPLOYMENT_STATUS) ?? []).map((c: any) => ({ label: c.description, value: c.code }));
+  const instituteLevelOptions = (getLookupDomain(LookupDomain.INSTITUTE_LEVEL) ?? []).map((c: any) => ({ label: c.description, value: c.code }));
 
+  const effectiveGenderOptions = genderOptions.length
+    ? genderOptions
+    : [
+        { value: GenderCode.MALE, label: "Male" },
+        { value: GenderCode.FEMALE, label: "Female" },
+      ];
+
+  const effectiveMaritalOptions = maritalOptions.length
+    ? maritalOptions
+    : [
+        { value: MaritalStatusCode.SINGLE, label: "Single" },
+        { value: MaritalStatusCode.MARRIED, label: "Married" },
+        { value: MaritalStatusCode.WIDOWED, label: "Widowed" },
+        { value: MaritalStatusCode.DIVORCED, label: "Divorced" },
+      ];
+
+  const effectiveVitalStatusOptions = vitalStatusOptions.length
+    ? vitalStatusOptions
+    : [
+        { value: VITAL_STATUS.ALIVE, label: "Alive" },
+        { value: VITAL_STATUS.DECEASED, label: "Deceased" },
+      ];
   const isNoEducation = (code?: string) => {
     const c = String(code || "").toUpperCase();
     return c.includes("NO") && c.includes("EDU");
@@ -311,16 +416,50 @@ const ManageUserEdit: React.FC = () => {
             }))
           : []
       );
+
+      setInitialSpouseLabels(Array.isArray(p.spouseList) ? p.spouseList.slice(0, 4).map((s) => s?.spouseName || "") : []);
       setValue("civilFamilyGovernorateId", p.civilFamily?.civilFamilyGovernorateId?.toString());
       setValue("civilFamilyDistrictId", p.civilFamily?.civilFamilyDistrictId?.toString());
       setValue("civilFamilyCityId", p.civilFamily?.civilFamilyCityId?.toString());
       setValue("civilFamilyNumber", p.civilFamily?.civilFamilyNumber);
+
+      setInitialFatherLabel(p.father?.parentName || "");
+      setInitialMotherLabel(p.mother?.parentName || "");
+
+      const isNoCivil = String(p.civilFamily?.civilFamilyNumber || "") === "-999";
+      setValue("hasNoCivilId", isNoCivil);
+      if (isNoCivil) {
+        setValue("civilFamilyGovernorateId", "");
+        setValue("civilFamilyDistrictId", "");
+        setValue("civilFamilyCityId", "");
+        setValue("civilFamilyNumber", "-999");
+      }
+
       setValue("familyBranchId", p.familyBranch?.id?.toString());
       setValue("fatherId", p.father?.parentId?.toString());
       setValue("motherId", p.mother?.parentId?.toString());
       setProfilePicUrl(p.profilePicUrl || null);
     }
   }, [id, users, setValue]);
+
+  useEffect(() => {
+    // Mirror Expo behavior:
+    // - when checked: hide civil-location fields and force values
+    // - when unchecked: clear default -999 (if it was auto-filled)
+    if (hasNoCivilId) {
+      setValue("civilFamilyGovernorateId", "", { shouldDirty: true });
+      setValue("civilFamilyDistrictId", "", { shouldDirty: true });
+      setValue("civilFamilyCityId", "", { shouldDirty: true });
+      setValue("civilFamilyNumber", "-999", { shouldDirty: true });
+    } else {
+      // When user UNCHECKS, clear the sentinel value
+      const current = String(watch("civilFamilyNumber") ?? "");
+      if (current === "-999") {
+        setValue("civilFamilyNumber", "", { shouldDirty: true });
+      }
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [hasNoCivilId, setValue]);
 
   useEffect(() => {
     if (maritalStatus === MaritalStatusCode.SINGLE) {
@@ -336,7 +475,16 @@ const ManageUserEdit: React.FC = () => {
         formData.append(key, value as any);
       });
       if (profilePic) formData.append("profilePic", profilePic);
-      await putData(`/FamilyTreeBe/UpdateUser`, { userId: id, ...data });
+
+      const payload: any = { userId: id, ...data };
+      if (payload.hasNoCivilId) {
+        payload.civilFamilyGovernorateId = null;
+        payload.civilFamilyDistrictId = null;
+        payload.civilFamilyCityId = null;
+        payload.civilFamilyNumber = "-999";
+      }
+
+      await putData(`/FamilyTreeBe/UpdateUser`, payload);
       showToast("Saved successfully", "success");
       navigate("/manage-users");
     } catch (err) {
@@ -401,7 +549,7 @@ const ManageUserEdit: React.FC = () => {
               name="gender"
               control={control}
               render={({ field }) => (
-                <Select options={genderOptions} placeholder="Select gender" onChange={field.onChange} defaultValue={field.value} />
+                <Select options={effectiveGenderOptions} placeholder="Select gender" onChange={field.onChange} defaultValue={field.value} />
               )}
             />
             {errors.gender && <p className="text-error-500 text-xs mt-1">{errors.gender.message}</p>}
@@ -422,7 +570,7 @@ const ManageUserEdit: React.FC = () => {
               name="maritalStatus"
               control={control}
               render={({ field }) => (
-                <Select options={maritalOptions} placeholder="Select marital status" onChange={field.onChange} defaultValue={field.value} />
+                <Select options={effectiveMaritalOptions} placeholder="Select marital status" onChange={field.onChange} defaultValue={field.value} />
               )}
             />
             {errors.maritalStatus && <p className="text-error-500 text-xs mt-1">{errors.maritalStatus.message}</p>}
@@ -433,7 +581,12 @@ const ManageUserEdit: React.FC = () => {
               name="vitalStatus"
               control={control}
               render={({ field }) => (
-                <Select options={vitalStatusOptions} placeholder="Select vital status" onChange={field.onChange} defaultValue={field.value} />
+                <Select
+                  options={effectiveVitalStatusOptions}
+                  placeholder="Select vital status"
+                  onChange={field.onChange}
+                  defaultValue={field.value}
+                />
               )}
             />
             {errors.vitalStatus && <p className="text-error-500 text-xs mt-1">{errors.vitalStatus.message}</p>}
@@ -612,14 +765,16 @@ const ManageUserEdit: React.FC = () => {
                         onChange={(v) => {
                           const arr = Array.isArray(field.value) ? [...field.value] : [];
                           arr[idx].statusCode = v;
-                          if (isNotWorking(v)) {
-                            arr[idx].workplace = "";
-                            arr[idx].companyName = "";
-                            arr[idx].occupation = "";
-                            arr[idx].position = "";
-                          } else {
-                            arr[idx].reasonNotWorking = "";
-                          }
+                          // if (isNotWorking(v)) {
+                          //   arr[idx].workplace = "";
+                          //   arr[idx].companyName = "";
+                          //   arr[idx].occupation = "";
+                          //   arr[idx].position = "";
+                          //   arr[idx].startDate = "";
+                          //   arr[idx].endDate = "";
+                          // } else {
+                          //   arr[idx].reasonNotWorking = "";
+                          // }
                           field.onChange(arr);
                         }}
                       />
@@ -670,6 +825,30 @@ const ManageUserEdit: React.FC = () => {
                             }}
                           />
                         </div>
+                        <div>
+                          <label className="block text-sm font-medium text-gray-700 dark:text-gray-200 mb-1">Start Date</label>
+                          <DatePicker
+                            id={`emp-start-${idx}`}
+                            defaultDate={emp.startDate || ""}
+                            onChange={(date) => {
+                              const arr = [...(field.value || [])];
+                              arr[idx].startDate = date && date[0] ? date[0].toISOString() : "";
+                              field.onChange(arr);
+                            }}
+                          />
+                        </div>
+                        <div>
+                          <label className="block text-sm font-medium text-gray-700 dark:text-gray-200 mb-1">End Date</label>
+                          <DatePicker
+                            id={`emp-end-${idx}`}
+                            defaultDate={emp.endDate || ""}
+                            onChange={(date) => {
+                              const arr = [...(field.value || [])];
+                              arr[idx].endDate = date && date[0] ? date[0].toISOString() : "";
+                              field.onChange(arr);
+                            }}
+                          />
+                        </div>
                       </>
                     ) : (
                       <div>
@@ -684,30 +863,6 @@ const ManageUserEdit: React.FC = () => {
                         />
                       </div>
                     )}
-                    <div>
-                      <label className="block text-sm font-medium text-gray-700 dark:text-gray-200 mb-1">Start Date</label>
-                      <DatePicker
-                        id={`emp-start-${idx}`}
-                        defaultDate={emp.startDate || ""}
-                        onChange={(date) => {
-                          const arr = [...(field.value || [])];
-                          arr[idx].startDate = date && date[0] ? date[0].toISOString() : "";
-                          field.onChange(arr);
-                        }}
-                      />
-                    </div>
-                    <div>
-                      <label className="block text-sm font-medium text-gray-700 dark:text-gray-200 mb-1">End Date</label>
-                      <DatePicker
-                        id={`emp-end-${idx}`}
-                        defaultDate={emp.endDate || ""}
-                        onChange={(date) => {
-                          const arr = [...(field.value || [])];
-                          arr[idx].endDate = date && date[0] ? date[0].toISOString() : "";
-                          field.onChange(arr);
-                        }}
-                      />
-                    </div>
                   </div>
                 ))}
                 {/* <button type="button" className="px-3 py-1 rounded bg-primary-600 dark:bg-primary-400 text-white text-sm font-semibold mt-2" onClick={() => field.onChange([...(Array.isArray(field.value) ? field.value : []), {
@@ -796,10 +951,10 @@ const ManageUserEdit: React.FC = () => {
                       <div>
                         <label className="block text-sm font-medium text-gray-700 dark:text-gray-200 mb-1">Country</label>
                         <Select
-                          options={[
-                            { value: "LB", label: "Lebanon" },
-                            { value: "SY", label: "Syria" },
-                          ]}
+                          options={(addr.addressTypeCode === "ORIGIN" ? originCountryOptions : currentCountryOptions).map((c: any) => ({
+                            value: c.value,
+                            label: c.label,
+                          }))}
                           defaultValue={addr.countryId || ""}
                           onChange={(v) => {
                             const arr = Array.isArray(field.value) ? [...field.value] : [];
@@ -829,11 +984,13 @@ const ManageUserEdit: React.FC = () => {
                     <div key={idx} className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4 p-3 border rounded bg-gray-50 dark:bg-slate-800">
                       <div>
                         <label className="block text-sm font-medium text-gray-700 dark:text-gray-200 mb-1">Spouse ID</label>
-                        <Input
+                        <UserSearchSelect
                           value={sp.spouseId || ""}
-                          onChange={(e) => {
+                          gender={spouseSearchGender}
+                          initialLabel={initialSpouseLabels[idx]}
+                          onChange={(v) => {
                             const arr = Array.isArray(field.value) ? [...field.value] : [];
-                            arr[idx].spouseId = e.target.value;
+                            arr[idx].spouseId = v;
                             field.onChange(arr);
                           }}
                         />
@@ -922,53 +1079,110 @@ const ManageUserEdit: React.FC = () => {
                 </div>
               )}
             />
-            <Controller
-              name="civilFamilyGovernorateId"
-              control={control}
-              render={({ field }) => (
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 dark:text-gray-200 mb-1">Governorate ID</label>
-                  <Input {...field} value={field.value ?? ""} />
-                </div>
-              )}
-            />
-            <Controller
-              name="civilFamilyDistrictId"
-              control={control}
-              render={({ field }) => (
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 dark:text-gray-200 mb-1">District ID</label>
-                  <Input {...field} value={field.value ?? ""} />
-                </div>
-              )}
-            />
-            <Controller
-              name="civilFamilyCityId"
-              control={control}
-              render={({ field }) => (
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 dark:text-gray-200 mb-1">City ID</label>
-                  <Input {...field} value={field.value ?? ""} />
-                </div>
-              )}
-            />
-            <Controller
-              name="civilFamilyNumber"
-              control={control}
-              render={({ field }) => (
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 dark:text-gray-200 mb-1">Civil Family Number</label>
-                  <Input {...field} value={field.value ?? ""} />
-                </div>
-              )}
-            />
+            {!hasNoCivilId && (
+              <>
+                <Controller
+                  name="civilFamilyGovernorateId"
+                  control={control}
+                  render={({ field }) => {
+                    const originIdNum = Number(selectedOriginCountryId) || 0;
+                    const governorates = ((locationsResp?.data as any)?.governorates ?? []) as any[];
+                    const options = governorates
+                      .filter((g) => (originIdNum > 0 ? Number(g?.countryId) === originIdNum : true))
+                      .map((g) => ({ label: g?.name ?? g?.description ?? String(g?.id), value: String(g?.id) }));
+                    return (
+                      <div>
+                        <label className="block text-sm font-medium text-gray-700 dark:text-gray-200 mb-1">Governorate</label>
+                        <Select
+                          options={options}
+                          placeholder="Select governorate"
+                          defaultValue={field.value ?? ""}
+                          onChange={(v) => {
+                            field.onChange(v);
+                            setValue("civilFamilyDistrictId", "", { shouldDirty: true });
+                            setValue("civilFamilyCityId", "", { shouldDirty: true });
+                          }}
+                        />
+                      </div>
+                    );
+                  }}
+                />
+                <Controller
+                  name="civilFamilyDistrictId"
+                  control={control}
+                  render={({ field }) => {
+                    const govIdNum = Number(selectedCivilGovId) || 0;
+                    const districts = ((locationsResp?.data as any)?.districts ?? []) as any[];
+                    const options = districts
+                      .filter((d) => (govIdNum > 0 ? Number(d?.governorateId) === govIdNum : true))
+                      .map((d) => ({ label: d?.name ?? d?.description ?? String(d?.id), value: String(d?.id) }));
+                    return (
+                      <div>
+                        <label className="block text-sm font-medium text-gray-700 dark:text-gray-200 mb-1">District</label>
+                        <Select
+                          options={options}
+                          placeholder="Select district"
+                          defaultValue={field.value ?? ""}
+                          onChange={(v) => {
+                            field.onChange(v);
+                            setValue("civilFamilyCityId", "", { shouldDirty: true });
+                          }}
+                        />
+                      </div>
+                    );
+                  }}
+                />
+                <Controller
+                  name="civilFamilyCityId"
+                  control={control}
+                  render={({ field }) => {
+                    const options = (Array.isArray(citiesList) ? citiesList : []).map((c: any) => ({
+                      label: c?.name ?? c?.description ?? String(c?.id),
+                      value: String(c?.id),
+                    }));
+                    const disabled = !selectedIso || !(Number(selectedCivilGovId) > 0) || !(Number(selectedCivilDistrictId) > 0);
+                    return (
+                      <div>
+                        <label className="block text-sm font-medium text-gray-700 dark:text-gray-200 mb-1">City</label>
+                        <Select
+                          options={options}
+                          placeholder={isFetchingCities ? "Loading cities..." : "Select city"}
+                          defaultValue={field.value ?? ""}
+                          onChange={field.onChange}
+                          disabled={disabled}
+                        />
+                      </div>
+                    );
+                  }}
+                />
+                <Controller
+                  name="civilFamilyNumber"
+                  control={control}
+                  render={({ field }) => (
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 dark:text-gray-200 mb-1">Civil Family Number</label>
+                      <Input {...field} value={field.value ?? ""} />
+                    </div>
+                  )}
+                />
+              </>
+            )}
             <Controller
               name="familyBranchId"
               control={control}
               render={({ field }) => (
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 dark:text-gray-200 mb-1">Family Branch ID</label>
-                  <Input {...field} value={field.value ?? ""} />
+                  <label className="block text-sm font-medium text-gray-700 dark:text-gray-200 mb-1">Family Branch</label>
+                  <Select
+                    options={(Array.isArray(familyBranchesList) ? familyBranchesList : []).map((b: any) => ({
+                      label: b?.name ?? b?.description ?? String(b?.id),
+                      value: String(b?.id),
+                    }))}
+                    placeholder="Select family branch"
+                    defaultValue={field.value ?? ""}
+                    onChange={field.onChange}
+                    disabled={!selectedIso}
+                  />
                 </div>
               )}
             />
@@ -978,7 +1192,13 @@ const ManageUserEdit: React.FC = () => {
               render={({ field }) => (
                 <div>
                   <label className="block text-sm font-medium text-gray-700 dark:text-gray-200 mb-1">Father ID</label>
-                  <Input {...field} value={field.value ?? ""} />
+                  <UserSearchSelect
+                    value={field.value ?? ""}
+                    gender={GenderCode.MALE}
+                    civilFamilyNumber={civilFamilyNumberValue}
+                    initialLabel={initialFatherLabel}
+                    onChange={field.onChange}
+                  />
                 </div>
               )}
             />
@@ -988,7 +1208,13 @@ const ManageUserEdit: React.FC = () => {
               render={({ field }) => (
                 <div>
                   <label className="block text-sm font-medium text-gray-700 dark:text-gray-200 mb-1">Mother ID</label>
-                  <Input {...field} value={field.value ?? ""} />
+                  <UserSearchSelect
+                    value={field.value ?? ""}
+                    gender={GenderCode.FEMALE}
+                    civilFamilyNumber={civilFamilyNumberValue}
+                    initialLabel={initialMotherLabel}
+                    onChange={field.onChange}
+                  />
                 </div>
               )}
             />

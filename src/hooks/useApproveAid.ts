@@ -11,7 +11,7 @@ export default function useApproveAid() {
   return useMutation<BaseResponse<any>, Error, ApproveAidRequest>({
     mutationFn: (body: ApproveAidRequest) => postData<ApproveAidRequest, BaseResponse<any>>(`/Admin/ApproveAid`, body),
     onSuccess: () => {
-      qc.invalidateQueries(["AllAidRequests"]);
+      qc.invalidateQueries({ queryKey: ["AllAidRequests"] });
     },
   });
 }

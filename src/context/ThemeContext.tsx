@@ -27,7 +27,6 @@ export const ThemeProvider: React.FC<{ children: React.ReactNode }> = ({
     }
     return 'light';
   });
-  const [isInitialized, setIsInitialized] = useState(true);
 
   useEffect(() => {
     // ensure localStorage and document class are synced on mount
@@ -39,17 +38,6 @@ export const ThemeProvider: React.FC<{ children: React.ReactNode }> = ({
       /* ignore */
     }
   }, [theme]);
-
-  useEffect(() => {
-    if (isInitialized) {
-      localStorage.setItem("theme", theme);
-      if (theme === "dark") {
-        document.documentElement.classList.add("dark");
-      } else {
-        document.documentElement.classList.remove("dark");
-      }
-    }
-  }, [theme, isInitialized]);
 
   const toggleTheme = () => {
     setTheme((prevTheme) => (prevTheme === "light" ? "dark" : "light"));

@@ -12,7 +12,7 @@ export default function useUpdateFitraStatus() {
   return useMutation<BaseResponse<any>, Error, UpdateFitraPayload>({
     mutationFn: (body: UpdateFitraPayload) => postData<UpdateFitraPayload, BaseResponse<any>>(`/Admin/Fitra/UpdateFitraStatus`, body),
     onSuccess: () => {
-      qc.invalidateQueries(["fitra", "payments"]);
+      qc.invalidateQueries({ queryKey: ["fitra", "payments"] });
     },
   });
 }

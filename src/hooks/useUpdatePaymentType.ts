@@ -1,7 +1,6 @@
 import { postData } from "@/services/apiClient";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { BaseResponse } from "@/interface/baseResponse.interface";
-import { PaymentType } from "@/hooks/useGetPaymentTypes";
 
 export interface UpdatePaymentTypePayload {
   id?: number;
@@ -16,7 +15,7 @@ export default function useUpdatePaymentType() {
   return useMutation<BaseResponse<any>, Error, UpdatePaymentTypePayload>({
     mutationFn: (body: UpdatePaymentTypePayload) => postData<UpdatePaymentTypePayload, BaseResponse<any>>(`/Admin/UpdatePaymentType`, body),
     onSuccess: () => {
-      qc.invalidateQueries(["paymentTypes", "general"]);
+      qc.invalidateQueries({ queryKey: ["paymentTypes", "general"] });
     },
   });
 }

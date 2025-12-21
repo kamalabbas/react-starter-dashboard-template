@@ -12,7 +12,7 @@ export default function useUpdateZakatStatus() {
   return useMutation<BaseResponse<any>, Error, UpdateZakatPayload>({
     mutationFn: (body: UpdateZakatPayload) => postData<UpdateZakatPayload, BaseResponse<any>>(`/Admin/Fitra/UpdateZakatStatus`, body),
     onSuccess: () => {
-      qc.invalidateQueries(["zakat", "list"]);
+      qc.invalidateQueries({ queryKey: ["zakat", "list"] });
     },
   });
 }

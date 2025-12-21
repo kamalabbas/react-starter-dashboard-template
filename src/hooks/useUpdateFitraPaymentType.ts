@@ -15,7 +15,7 @@ export default function useUpdateFitraPaymentType() {
   return useMutation<BaseResponse<any>, Error, UpdateFitraPaymentTypePayload>({
     mutationFn: (body: UpdateFitraPaymentTypePayload) => postData<UpdateFitraPaymentTypePayload, BaseResponse<any>>(`/Admin/Fitra/UpdatePaymentType`, body),
     onSuccess: () => {
-      qc.invalidateQueries(["paymentTypes", "fitra"]);
+      qc.invalidateQueries({ queryKey: ["paymentTypes", "fitra"] });
     },
   });
 }

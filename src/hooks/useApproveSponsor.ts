@@ -12,7 +12,7 @@ export default function useApproveSponsor() {
   return useMutation<BaseResponse<any>, Error, ApproveSponsorRequest>({
     mutationFn: (body: ApproveSponsorRequest) => postData<ApproveSponsorRequest, BaseResponse<any>>(`/Admin/Beneficiary/ApproveSponsor`, body),
     onSuccess: () => {
-      qc.invalidateQueries(["beneficiaries", "list"]);
+      qc.invalidateQueries({ queryKey: ["beneficiaries", "list"] });
     },
   });
 }

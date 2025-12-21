@@ -13,7 +13,7 @@ export default function useUpdateSadakaStatus() {
     mutationFn: (body: UpdateSadakaStatusRequest) =>
       postData<UpdateSadakaStatusRequest, BaseResponse<any>>(`/Admin/Fitra/UpdateSadakaStatus`, body),
     onSuccess: () => {
-      qc.invalidateQueries(["sadaka", "list"]);
+      qc.invalidateQueries({ queryKey: ["sadaka", "list"] });
     },
   });
 }
