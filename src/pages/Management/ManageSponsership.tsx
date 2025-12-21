@@ -17,6 +17,11 @@ const ManageSponsership: React.FC = () => {
   const approve = useApproveSponsor();
   const [approvingSponsorId, setApprovingSponsorId] = useState<number | null>(null);
 
+  const getPendingSponsorsCount = (b: Beneficiary) =>
+    (b.sponsors ?? []).filter(
+      (s) => s.isSponsoring && (s.statusCode ?? "").toUpperCase() !== "ACCEPTED"
+    ).length;
+
   const columns: Column<Beneficiary>[] = [
     {
       key: "name",
@@ -36,6 +41,21 @@ const ManageSponsership: React.FC = () => {
     { key: "gender", header: "Gender", render: (b) => b.genderDescription ?? "-" },
     { key: "reason", header: "Reason", render: (b) => b.beneficiaryReason ?? "-" },
     { key: "sponsors", header: "Sponsors", render: (b) => String(b.sponsors?.length ?? 0) },
+    {
+      key: "pending",
+      header: "Pending Sponsors",
+      render: (b) => {
+        const pending = getPendingSponsorsCount(b);
+        if (!pending) {
+          return <span className="text-gray-500 dark:text-gray-400">0</span>;
+        }
+        return (
+          <span className="inline-flex items-center rounded-full bg-amber-100 px-2 py-0.5 text-xs font-medium text-amber-800 dark:bg-amber-900/40 dark:text-amber-200">
+            {pending}
+          </span>
+        );
+      },
+    },
     {
       key: "actions",
       header: "Actions",
