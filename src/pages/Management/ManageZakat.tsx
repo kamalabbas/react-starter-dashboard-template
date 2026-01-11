@@ -6,6 +6,9 @@ import Button from "@/components/ui/button/Button";
 import { Modal } from "@/components/ui/modal";
 import useUpdateZakatStatus from "@/hooks/useUpdateZakatStatus";
 import { useToastStore } from "@/stores/toastStore";
+import Switch from "@/components/form/switch/Switch";
+import useGetMobileFeatures from "@/hooks/useGetMobileFeatures";
+import useUpdateMobileFeatureAccess from "@/hooks/useUpdateMobileFeatureAccess";
 
 const ManageZakat: React.FC = () => {
   const { data: zakat = [], isLoading, isError } = useGetAllZakat();
@@ -15,6 +18,12 @@ const ManageZakat: React.FC = () => {
   const update = useUpdateZakatStatus();
   const showToast = useToastStore((s) => s.showToast);
   const [recipients, setRecipients] = useState<ZakatItem["zakatRecipientList"] | null>(null);
+
+  const { data: mobileFeatures = [], isLoading: isFeaturesLoading } = useGetMobileFeatures();
+  const updateFeatureAccess = useUpdateMobileFeatureAccess();
+
+  const zakatFeature = mobileFeatures.find((f) => f.code === "ZAKAT");
+  const isZakatEnabled = zakatFeature ? zakatFeature.isEnabled : false;
 
   const filteredZakat = zakat.filter(s => {
     return (
@@ -78,13 +87,30 @@ const ManageZakat: React.FC = () => {
         <h1 className="font-semibold text-gray-800 text-title-sm dark:text-white/90 sm:text-title-md">
           Manage Zakat
         </h1>
-        <input
-          type="text"
-          className="px-3 py-2 rounded border border-gray-300 dark:border-gray-700 bg-gray-50 dark:bg-slate-800 text-gray-900 dark:text-gray-100 focus:outline-none focus:ring-2 focus:ring-blue-500 w-64"
-          placeholder="Search by name or user ID..."
-          value={search}
-          onChange={e => setSearch(e.target.value)}
-        />
+        <div className="flex items-center gap-4">
+          <input
+            type="text"
+            className="px-3 py-2 rounded border border-gray-300 dark:border-gray-700 bg-gray-50 dark:bg-slate-800 text-gray-900 dark:text-gray-100 focus:outline-none focus:ring-2 focus:ring-blue-500 w-64"
+            placeholder="Search by name or user ID..."
+            value={search}
+            onChange={e => setSearch(e.target.value)}
+          />
+
+          <Switch
+            key={`${zakatFeature?.id ?? "missing"}-${isZakatEnabled}`}
+            label="Enable feature"
+            defaultChecked={isZakatEnabled}
+            disabled={!zakatFeature || isFeaturesLoading || updateFeatureAccess.isPending}
+            onChange={async (checked) => {
+              if (!zakatFeature) return;
+              try {
+                await updateFeatureAccess.mutateAsync({ featureId: zakatFeature.id, isEnabled: checked });
+              } catch (err: any) {
+                showToast(err?.message ?? "Failed to update feature", "error");
+              }
+            }}
+          />
+        </div>
       </div>
       <div className="mt-6">
         <BasicTable<ZakatItem>

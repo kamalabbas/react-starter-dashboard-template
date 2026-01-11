@@ -6,6 +6,9 @@ import UserAvatar from "@/components/ui/avatar/UserAvatar";
 import Button from "@/components/ui/button/Button";
 import { Modal } from "@/components/ui/modal";
 import useApproveSponsor from "@/hooks/useApproveSponsor";
+import Switch from "@/components/form/switch/Switch";
+import useGetMobileFeatures from "@/hooks/useGetMobileFeatures";
+import useUpdateMobileFeatureAccess from "@/hooks/useUpdateMobileFeatureAccess";
 
 import { useToastStore } from "@/stores/toastStore";
 
@@ -16,6 +19,12 @@ const ManageSponsership: React.FC = () => {
   const showToast = useToastStore((s) => s.showToast);
   const approve = useApproveSponsor();
   const [approvingSponsorId, setApprovingSponsorId] = useState<number | null>(null);
+
+  const { data: mobileFeatures = [], isLoading: isFeaturesLoading } = useGetMobileFeatures();
+  const updateFeatureAccess = useUpdateMobileFeatureAccess();
+
+  const sponsorFeature = mobileFeatures.find((f) => f.code === "SPONSOR");
+  const isSponsorEnabled = sponsorFeature ? sponsorFeature.isEnabled : false;
 
   const getPendingSponsorsCount = (b: Beneficiary) =>
     (b.sponsors ?? []).filter(
@@ -105,13 +114,30 @@ const ManageSponsership: React.FC = () => {
         <h1 className="font-semibold text-gray-800 text-title-sm dark:text-white/90 sm:text-title-md">
           Manage Sponsership
         </h1>
-        <input
-          type="text"
-          className="px-3 py-2 rounded border border-gray-300 dark:border-gray-700 bg-gray-50 dark:bg-slate-800 text-gray-900 dark:text-gray-100 focus:outline-none focus:ring-2 focus:ring-blue-500 w-64"
-          placeholder="Search by name or family number..."
-          value={search}
-          onChange={e => setSearch(e.target.value)}
-        />
+        <div className="flex items-center gap-4">
+          <input
+            type="text"
+            className="px-3 py-2 rounded border border-gray-300 dark:border-gray-700 bg-gray-50 dark:bg-slate-800 text-gray-900 dark:text-gray-100 focus:outline-none focus:ring-2 focus:ring-blue-500 w-64"
+            placeholder="Search by name or family number..."
+            value={search}
+            onChange={e => setSearch(e.target.value)}
+          />
+
+          <Switch
+            key={`${sponsorFeature?.id ?? "missing"}-${isSponsorEnabled}`}
+            label="Enable feature"
+            defaultChecked={isSponsorEnabled}
+            disabled={!sponsorFeature || isFeaturesLoading || updateFeatureAccess.isPending}
+            onChange={async (checked) => {
+              if (!sponsorFeature) return;
+              try {
+                await updateFeatureAccess.mutateAsync({ featureId: sponsorFeature.id, isEnabled: checked });
+              } catch (err: any) {
+                showToast(err?.message ?? "Failed to update feature", "error");
+              }
+            }}
+          />
+        </div>
       </div>
       <div className="mt-6">
         <BasicTable<Beneficiary>

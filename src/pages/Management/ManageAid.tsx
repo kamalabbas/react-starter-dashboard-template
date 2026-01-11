@@ -6,6 +6,9 @@ import Button from "@/components/ui/button/Button";
 import { Modal } from "@/components/ui/modal";
 import useApproveAid from "@/hooks/useApproveAid";
 import { useToastStore } from "@/stores/toastStore";
+import Switch from "@/components/form/switch/Switch";
+import useGetMobileFeatures from "@/hooks/useGetMobileFeatures";
+import useUpdateMobileFeatureAccess from "@/hooks/useUpdateMobileFeatureAccess";
 
 const ManageAid: React.FC = () => {
   const { data: aids = [], isLoading, isError } = useGetAllAidRequests();
@@ -14,6 +17,12 @@ const ManageAid: React.FC = () => {
   const [search, setSearch] = useState("");
   const approve = useApproveAid();
   const showToast = useToastStore((s) => s.showToast);
+
+  const { data: mobileFeatures = [], isLoading: isFeaturesLoading } = useGetMobileFeatures();
+  const updateFeatureAccess = useUpdateMobileFeatureAccess();
+
+  const aidFeature = mobileFeatures.find((f) => f.code === "ASK_FOR_AID");
+  const isAidEnabled = aidFeature ? aidFeature.isEnabled : false;
 
   const columns: Column<AskForAidItem>[] = [
     {
@@ -77,13 +86,30 @@ const ManageAid: React.FC = () => {
         <h1 className="font-semibold text-gray-800 text-title-sm dark:text-white/90 sm:text-title-md">
           Manage Aid
         </h1>
-        <input
-          type="text"
-          className="px-3 py-2 rounded border border-gray-300 dark:border-gray-700 bg-gray-50 dark:bg-slate-800 text-gray-900 dark:text-gray-100 focus:outline-none focus:ring-2 focus:ring-blue-500 w-64"
-          placeholder="Search by name or family number..."
-          value={search}
-          onChange={e => setSearch(e.target.value)}
-        />
+        <div className="flex items-center gap-4">
+          <input
+            type="text"
+            className="px-3 py-2 rounded border border-gray-300 dark:border-gray-700 bg-gray-50 dark:bg-slate-800 text-gray-900 dark:text-gray-100 focus:outline-none focus:ring-2 focus:ring-blue-500 w-64"
+            placeholder="Search by name or family number..."
+            value={search}
+            onChange={e => setSearch(e.target.value)}
+          />
+
+          <Switch
+            key={`${aidFeature?.id ?? "missing"}-${isAidEnabled}`}
+            label="Enable feature"
+            defaultChecked={isAidEnabled}
+            disabled={!aidFeature || isFeaturesLoading || updateFeatureAccess.isPending}
+            onChange={async (checked) => {
+              if (!aidFeature) return;
+              try {
+                await updateFeatureAccess.mutateAsync({ featureId: aidFeature.id, isEnabled: checked });
+              } catch (err: any) {
+                showToast(err?.message ?? "Failed to update feature", "error");
+              }
+            }}
+          />
+        </div>
       </div>
       <div className="mt-6">
         <BasicTable<AskForAidItem>

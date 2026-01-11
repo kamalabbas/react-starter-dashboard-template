@@ -6,6 +6,9 @@ import Button from "@/components/ui/button/Button";
 import { Modal } from "@/components/ui/modal";
 import useUpdateSadakaStatus from "@/hooks/useUpdateSadakaStatus";
 import { useToastStore } from "@/stores/toastStore";
+import Switch from "@/components/form/switch/Switch";
+import useGetMobileFeatures from "@/hooks/useGetMobileFeatures";
+import useUpdateMobileFeatureAccess from "@/hooks/useUpdateMobileFeatureAccess";
 
 const ManageSadaqah: React.FC = () => {
   const { data: sadaqah = [], isLoading, isError } = useGetAllSadaka();
@@ -15,6 +18,12 @@ const ManageSadaqah: React.FC = () => {
   const [recipients, setRecipients] = useState<SadakaItem["sadakaRecipientList"] | null>(null);
   const update = useUpdateSadakaStatus();
   const showToast = useToastStore((s) => s.showToast);
+
+  const { data: mobileFeatures = [], isLoading: isFeaturesLoading } = useGetMobileFeatures();
+  const updateFeatureAccess = useUpdateMobileFeatureAccess();
+
+  const sadakaFeature = mobileFeatures.find((f) => f.code === "SADAKA");
+  const isSadakaEnabled = sadakaFeature ? sadakaFeature.isEnabled : false;
 
   const columns: Column<SadakaItem>[] = [
     {
@@ -81,13 +90,30 @@ const ManageSadaqah: React.FC = () => {
         <h1 className="font-semibold text-gray-800 text-title-sm dark:text-white/90 sm:text-title-md">
           Manage Sadaqah
         </h1>
-        <input
-          type="text"
-          className="px-3 py-2 rounded border border-gray-300 dark:border-gray-700 bg-gray-50 dark:bg-slate-800 text-gray-900 dark:text-gray-100 focus:outline-none focus:ring-2 focus:ring-blue-500 w-64"
-          placeholder="Search by name or user ID..."
-          value={search}
-          onChange={e => setSearch(e.target.value)}
-        />
+        <div className="flex items-center gap-4">
+          <input
+            type="text"
+            className="px-3 py-2 rounded border border-gray-300 dark:border-gray-700 bg-gray-50 dark:bg-slate-800 text-gray-900 dark:text-gray-100 focus:outline-none focus:ring-2 focus:ring-blue-500 w-64"
+            placeholder="Search by name or user ID..."
+            value={search}
+            onChange={e => setSearch(e.target.value)}
+          />
+
+          <Switch
+            key={`${sadakaFeature?.id ?? "missing"}-${isSadakaEnabled}`}
+            label="Enable feature"
+            defaultChecked={isSadakaEnabled}
+            disabled={!sadakaFeature || isFeaturesLoading || updateFeatureAccess.isPending}
+            onChange={async (checked) => {
+              if (!sadakaFeature) return;
+              try {
+                await updateFeatureAccess.mutateAsync({ featureId: sadakaFeature.id, isEnabled: checked });
+              } catch (err: any) {
+                showToast(err?.message ?? "Failed to update feature", "error");
+              }
+            }}
+          />
+        </div>
       </div>
       <div className="mt-6">
         <BasicTable<SadakaItem>

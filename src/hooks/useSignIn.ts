@@ -11,7 +11,15 @@ const useSignIn = () => {
   const showToast = useToastStore((s) => s.showToast);
 
   return useMutation({
-    mutationFn: (body: LoginRequest) => signIn(body),
+    mutationFn: async (body: LoginRequest) => {
+      const res = await signIn(body);
+      const payload = res.data;
+      const role = payload?.user?.userRoleCode;
+      if (role !== "ADMIN_USER") {
+        throw new Error("Not authorized (admin only)");
+      }
+      return res;
+    },
     onSuccess: async (res) => {
       const payload = res.data;
       if (!payload) return;

@@ -10,7 +10,6 @@ import Badges from "./pages/UiElements/Badges";
 import Avatars from "./pages/UiElements/Avatars";
 import Buttons from "./pages/UiElements/Buttons";
 import Calendar from "./pages/Calendar";
-import BasicTables from "./pages/Tables/BasicTables";
 import FormElements from "./pages/Forms/FormElements";
 import Blank from "./pages/Blank";
 import AppLayout from "./layout/AppLayout";
@@ -28,11 +27,13 @@ import ManageUserEdit from "./pages/Management/ManageUserEdit";
 import Configuration from "./pages/Management/Configuration";
 import ConfigurationPaymentTypes from "./pages/Management/ConfigurationPaymentTypes";
 import ConfigurationRamadan from "./pages/Management/ConfigurationRamadan";
+import ToastRenderer from "./components/common/ToastRenderer";
 
 export default function App() {
   return (
     <>
       <Router>
+        <ToastRenderer />
         <ScrollToTop />
         <Routes>
           {/* Dashboard Layout */}
@@ -48,7 +49,6 @@ export default function App() {
             <Route path="/form-elements" element={<FormElements />} />
 
             {/* Tables */}
-            <Route path="/leads" element={<BasicTables />} />
             <Route path="/manage-users" element={<ManageUsers />} />
             <Route path="/manage-fitra" element={<ManageFitra />} />
             <Route path="/manage-zakat" element={<ManageZakat />} />
