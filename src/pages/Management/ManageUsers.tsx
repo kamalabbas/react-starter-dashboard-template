@@ -9,14 +9,23 @@ const ManageUsers: React.FC = () => {
   const { data: users = [], isLoading, isError } = useUsersList();
   const [search, setSearch] = useState("");
 
-  // Filter users by name or email
+  // Search behavior:
+  // - digits-only query => match ID only
+  // - otherwise => match name or email
   const filteredUsers = users.filter((u) => {
+    const raw = search.trim();
+    if (!raw) return true;
+
+    const isNumericQuery = /^\d+$/.test(raw);
+    if (isNumericQuery) {
+      return String(u.id).includes(raw);
+    }
+
+    const q = raw.toLowerCase();
+
     const profile = u.userProfile;
     const fullName = profile ? `${profile.firstName} ${profile.familyName}` : "";
-    return (
-      fullName.toLowerCase().includes(search.toLowerCase()) ||
-      u.email.toLowerCase().includes(search.toLowerCase())
-    );
+    return fullName.toLowerCase().includes(q) || u.email.toLowerCase().includes(q);
   });
 
   const columns: Column<User>[] = [
@@ -116,7 +125,7 @@ const ManageUsers: React.FC = () => {
         <input
           type="text"
           className="px-3 py-2 rounded border border-gray-300 dark:border-gray-700 bg-gray-50 dark:bg-slate-800 text-gray-900 dark:text-gray-100 focus:outline-none focus:ring-2 focus:ring-blue-500 w-64"
-          placeholder="Search by name or email..."
+          placeholder="Search by ID (numbers) or name/email..."
           value={search}
           onChange={(e) => setSearch(e.target.value)}
         />
