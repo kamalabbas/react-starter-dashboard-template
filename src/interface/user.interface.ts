@@ -38,6 +38,7 @@ export interface UserProfile {
   spouseVitalStatusCode: string | null;
   spouseVitalStatusDescription: string | null;
   profilePicUrl: string | null | undefined;
+  selfiePicUrl?: string | null;
   educationList: Education[];
   employmentList: Employment[];
   addressList: Address[];

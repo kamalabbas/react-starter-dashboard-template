@@ -213,6 +213,7 @@ const ManageUserEdit: React.FC = () => {
   const { data: users = [], isLoading } = useUsersList();
   const [profilePic, setProfilePic] = useState<File | null>(null);
   const [profilePicUrl, setProfilePicUrl] = useState<string | null>(null);
+  const [selfiePicUrl, setSelfiePicUrl] = useState<string | null>(null);
   const [initialFatherLabel, setInitialFatherLabel] = useState<string>("");
   const [initialMotherLabel, setInitialMotherLabel] = useState<string>("");
   const [initialSpouseLabels, setInitialSpouseLabels] = useState<string[]>([]);
@@ -350,13 +351,13 @@ const ManageUserEdit: React.FC = () => {
     .map((c: any) => {
       const iso2 = String(
         c?.iso2 ??
-          c?.isoCode2 ??
-          c?.isoCode ??
-          c?.alpha2 ??
-          c?.countryIso2 ??
-          c?.countryCode ??
-          c?.code ??
-          ""
+        c?.isoCode2 ??
+        c?.isoCode ??
+        c?.alpha2 ??
+        c?.countryIso2 ??
+        c?.countryCode ??
+        c?.code ??
+        ""
       ).toUpperCase();
       const name =
         c?.name ??
@@ -375,18 +376,18 @@ const ManageUserEdit: React.FC = () => {
   const originCountryOptions = (allCountryOptions.length
     ? allCountryOptions
     : [
-        { value: "LB", label: "Lebanon", iso2: "LB" },
-        { value: "SY", label: "Syria", iso2: "SY" },
-      ]
+      { value: "LB", label: "Lebanon", iso2: "LB" },
+      { value: "SY", label: "Syria", iso2: "SY" },
+    ]
   ).filter((c: any) => ["LB", "SY"].includes(String(c.iso2).toUpperCase()));
 
   // IMPORTANT: current address MUST show ALL countries from API (no filter)
   const currentCountryOptions = allCountryOptions.length
     ? allCountryOptions
     : [
-        { value: "LB", label: "Lebanon", iso2: "LB" },
-        { value: "SY", label: "Syria", iso2: "SY" },
-      ];
+      { value: "LB", label: "Lebanon", iso2: "LB" },
+      { value: "SY", label: "Syria", iso2: "SY" },
+    ];
 
   const { getDomain: getLookupDomain } = useLookup([
     LookupDomain.GENDER,
@@ -411,25 +412,25 @@ const ManageUserEdit: React.FC = () => {
   const effectiveGenderOptions = genderOptions.length
     ? genderOptions
     : [
-        { value: GenderCode.MALE, label: "Male" },
-        { value: GenderCode.FEMALE, label: "Female" },
-      ];
+      { value: GenderCode.MALE, label: "Male" },
+      { value: GenderCode.FEMALE, label: "Female" },
+    ];
 
   const effectiveMaritalOptions = maritalOptions.length
     ? maritalOptions
     : [
-        { value: MaritalStatusCode.SINGLE, label: "Single" },
-        { value: MaritalStatusCode.MARRIED, label: "Married" },
-        { value: MaritalStatusCode.WIDOWED, label: "Widowed" },
-        { value: MaritalStatusCode.DIVORCED, label: "Divorced" },
-      ];
+      { value: MaritalStatusCode.SINGLE, label: "Single" },
+      { value: MaritalStatusCode.MARRIED, label: "Married" },
+      { value: MaritalStatusCode.WIDOWED, label: "Widowed" },
+      { value: MaritalStatusCode.DIVORCED, label: "Divorced" },
+    ];
 
   const effectiveVitalStatusOptions = vitalStatusOptions.length
     ? vitalStatusOptions
     : [
-        { value: VITAL_STATUS.ALIVE, label: "Alive" },
-        { value: VITAL_STATUS.DECEASED, label: "Deceased" },
-      ];
+      { value: VITAL_STATUS.ALIVE, label: "Alive" },
+      { value: VITAL_STATUS.DECEASED, label: "Deceased" },
+    ];
   const isNoEducation = (code?: string) => {
     const c = String(code || "").toUpperCase();
     return c.includes("NO") && c.includes("EDU");
@@ -508,14 +509,14 @@ const ManageUserEdit: React.FC = () => {
 
     const direct = String(
       obj?.parentName ??
-        obj?.spouseName ??
-        obj?.fullName ??
-        obj?.name ??
-        obj?.displayName ??
-        obj?.userName ??
-        obj?.parentFullName ??
-        obj?.spouseFullName ??
-        ""
+      obj?.spouseName ??
+      obj?.fullName ??
+      obj?.name ??
+      obj?.displayName ??
+      obj?.userName ??
+      obj?.parentFullName ??
+      obj?.spouseFullName ??
+      ""
     ).trim();
     if (direct) return direct;
 
@@ -568,43 +569,43 @@ const ManageUserEdit: React.FC = () => {
         "educationList",
         Array.isArray(p.educationList) && p.educationList.length > 0
           ? p.educationList.map((e) => ({
-              statusCode: e.statusCode,
-              educationTypeCode: e.educationTypeCode,
-              academicLevelCode: e.academicLevelCode,
-              instituteLevelCode: e.instituteLevelCode,
-              degreeTitle: e.degreeTitle,
-              major: e.major,
-              schoolName: e.schoolName,
-              startDate: e.startDate ? e.startDate.slice(0, 10) : "",
-              endDate: e.endDate ? e.endDate.slice(0, 10) : "",
-            }))
+            statusCode: e.statusCode,
+            educationTypeCode: e.educationTypeCode,
+            academicLevelCode: e.academicLevelCode,
+            instituteLevelCode: e.instituteLevelCode,
+            degreeTitle: e.degreeTitle,
+            major: e.major,
+            schoolName: e.schoolName,
+            startDate: e.startDate ? e.startDate.slice(0, 10) : "",
+            endDate: e.endDate ? e.endDate.slice(0, 10) : "",
+          }))
           : [
-              {
-                statusCode: "",
-                educationTypeCode: "",
-                academicLevelCode: "",
-                instituteLevelCode: "",
-                degreeTitle: "",
-                major: "",
-                schoolName: "",
-                startDate: "",
-                endDate: "",
-              },
-            ]
+            {
+              statusCode: "",
+              educationTypeCode: "",
+              academicLevelCode: "",
+              instituteLevelCode: "",
+              degreeTitle: "",
+              major: "",
+              schoolName: "",
+              startDate: "",
+              endDate: "",
+            },
+          ]
       );
       setValue(
         "employmentList",
         Array.isArray(p.employmentList) && p.employmentList.length > 0
           ? p.employmentList.map((e) => ({
-              statusCode: e.statusCode,
-              workplace: e.workplace,
-              companyName: e.companyName,
-              occupation: e.occupation,
-              position: e.position,
-              reasonNotWorking: e.reasonNotWorking,
-              startDate: e.startDate ? e.startDate.slice(0, 10) : "",
-              endDate: e.endDate ? e.endDate.slice(0, 10) : "",
-            }))
+            statusCode: e.statusCode,
+            workplace: e.workplace,
+            companyName: e.companyName,
+            occupation: e.occupation,
+            position: e.position,
+            reasonNotWorking: e.reasonNotWorking,
+            startDate: e.startDate ? e.startDate.slice(0, 10) : "",
+            endDate: e.endDate ? e.endDate.slice(0, 10) : "",
+          }))
           : [{ statusCode: "", workplace: "", companyName: "", occupation: "", position: "", reasonNotWorking: "", startDate: "", endDate: "" }]
       );
       setValue("addressList", normalizeAddresses(p.addressList));
@@ -612,21 +613,21 @@ const ManageUserEdit: React.FC = () => {
         "spouseList",
         Array.isArray(p.spouseList)
           ? p.spouseList.slice(0, 4).map((s) => ({
-              spouseId: s?.spouseId && Number(s.spouseId) > 0 ? String(s.spouseId) : "",
-              statusCode: s.statusCode,
-              startDate: s.startDate ? s.startDate.slice(0, 10) : "",
-              endDate: s.endDate ? s.endDate.slice(0, 10) : "",
-            }))
+            spouseId: s?.spouseId && Number(s.spouseId) > 0 ? String(s.spouseId) : "",
+            statusCode: s.statusCode,
+            startDate: s.startDate ? s.startDate.slice(0, 10) : "",
+            endDate: s.endDate ? s.endDate.slice(0, 10) : "",
+          }))
           : []
       );
 
       setInitialSpouseLabels(
         Array.isArray(p.spouseList)
           ? p.spouseList.slice(0, 4).map((s) => {
-              const direct = extractDisplayName(s);
-              if (direct) return direct;
-              return getNameByUserId(s?.spouseId);
-            })
+            const direct = extractDisplayName(s);
+            if (direct) return direct;
+            return getNameByUserId(s?.spouseId);
+          })
           : []
       );
       setValue("civilFamilyGovernorateId", p.civilFamily?.civilFamilyGovernorateId?.toString());
@@ -653,6 +654,7 @@ const ManageUserEdit: React.FC = () => {
       setValue("fatherId", p?.father?.parentId && Number(p.father.parentId) > 0 ? String(p.father.parentId) : "");
       setValue("motherId", p?.mother?.parentId && Number(p.mother.parentId) > 0 ? String(p.mother.parentId) : "");
       setProfilePicUrl(p.profilePicUrl || null);
+      setSelfiePicUrl(p.selfiePicUrl || null);
     }
   }, [id, users, setValue]);
 
@@ -859,15 +861,30 @@ const ManageUserEdit: React.FC = () => {
       <form onSubmit={handleSubmit(onSubmit)} className="space-y-8">
         {/* Profile Picture Upload */}
         <div className="flex flex-col items-center mb-6">
-          <div className="w-32 h-32 rounded-full bg-gray-200 dark:bg-gray-700 mb-2 overflow-hidden flex items-center justify-center">
-            {/* Show preview if available */}
-            {profilePic ? (
-              <img src={URL.createObjectURL(profilePic)} alt="Profile" className="object-cover w-full h-full" />
-            ) : profilePicUrl ? (
-              <img src={profilePicUrl} alt="Profile" className="object-cover w-full h-full" />
-            ) : (
-              <span className="text-gray-400 dark:text-gray-500">No Image</span>
-            )}
+          <div className="flex items-center gap-4 mb-2">
+            <div className="flex flex-col items-center">
+              <span className="text-xs text-gray-600 dark:text-gray-300 mb-1">User Profile</span>
+              <div className="w-32 h-32 rounded-full bg-gray-200 dark:bg-gray-700 overflow-hidden flex items-center justify-center">
+                {profilePic ? (
+                  <img src={URL.createObjectURL(profilePic)} alt="User Profile" className="object-cover w-full h-full" />
+                ) : profilePicUrl ? (
+                  <img src={profilePicUrl} alt="User Profile" className="object-cover w-full h-full" />
+                ) : (
+                  <span className="text-gray-400 dark:text-gray-500">No Image</span>
+                )}
+              </div>
+            </div>
+
+            <div className="flex flex-col items-center">
+              <span className="text-xs text-gray-600 dark:text-gray-300 mb-1">Selfie</span>
+              <div className="w-32 h-32 rounded-full bg-gray-200 dark:bg-gray-700 overflow-hidden flex items-center justify-center">
+                {selfiePicUrl ? (
+                  <img src={selfiePicUrl} alt="Selfie" className="object-cover w-full h-full" />
+                ) : (
+                  <span className="text-gray-400 dark:text-gray-500">No Image</span>
+                )}
+              </div>
+            </div>
           </div>
           <FileInput onChange={(e) => setProfilePic(e.target.files?.[0] || null)} />
         </div>
