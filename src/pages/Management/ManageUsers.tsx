@@ -100,6 +100,11 @@ const ManageUsers: React.FC = () => {
       render: (u) => <span className="text-sm font-medium text-gray-700 dark:text-gray-200">{u.statusCode ?? "-"}</span>,
     },
     {
+      key: "role",
+      header: "Role",
+      render: (u) => <span className="text-sm text-gray-500 dark:text-gray-400">{u.userRoleCode ?? "-"}</span>,
+    },
+    {
       key: "actions",
       header: "Actions",
       headerClassName: "text-right",

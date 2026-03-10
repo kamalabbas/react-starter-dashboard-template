@@ -2,7 +2,7 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import { Link, useLocation } from "react-router";
 
 // Assume these icons are imported from an icon library
-import { ChevronDownIcon, HorizontaLDots, GroupIcon, DollarLineIcon, BoxCubeIcon, PageIcon, PaperPlaneIcon } from "../icons";
+import { ChevronDownIcon, HorizontaLDots, GroupIcon, PageIcon, PaperPlaneIcon } from "../icons";
 import { useSidebar } from "../context/SidebarContext";
 
 type NavItem = {

@@ -11,12 +11,15 @@ import { restoreUser } from "./utility/restoreUser";
 const queryClient = new QueryClient();
 
 async function start() {
+  console.log('Starting app, base URL:', import.meta.env.VITE_BASE_URL);
   try {
     await restoreUser();
+    console.log('Restore user completed');
   } catch (err) {
     console.error("Failed to restore user on startup:", err);
   }
 
+  console.log('Rendering app');
   createRoot(document.getElementById("root")!).render(
     <StrictMode>
       <ThemeProvider>

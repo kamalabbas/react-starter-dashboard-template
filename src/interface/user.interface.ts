@@ -16,6 +16,13 @@ export interface User {
   statusCode: UserStatus;
   userRoleCode: string;
   userProfile: UserProfile | null;
+  managedBy? : managedBy;
+}
+
+export interface managedBy {
+  fullName: string;
+  managedByUserId: number;
+  managedUserId: number;
 }
 export interface UserProfile {
   id: number;

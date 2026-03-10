@@ -19,6 +19,8 @@ import { useGetFamilyBranches } from "@/hooks/useGetFamilyBranches";
 import UserSearchSelect from "@/components/form/UserSearchSelect";
 import { postData } from "@/services/api";
 import { BaseResponse } from "@/interface/baseResponse.interface";
+import { useToastStore } from "@/stores/toastStore";
+import { useInviteManagedUser } from "@/hooks/useManagedUser";
 
 // Expanded schema to match Expo form
 const normalizePassword = (value: unknown) => {
@@ -219,6 +221,11 @@ const ManageUserEdit: React.FC = () => {
   const [initialSpouseLabels, setInitialSpouseLabels] = useState<string[]>([]);
   const [initialFamilyBranchName, setInitialFamilyBranchName] = useState<string>("");
   const [initialFamilyBranchCountryId, setInitialFamilyBranchCountryId] = useState<number>(0);
+  const [isManagedModalOpen, setIsManagedModalOpen] = useState(false);
+  const [managedEmail, setManagedEmail] = useState("");
+  const [managedPassword, setManagedPassword] = useState("");
+  const [managedConfirmPassword, setManagedConfirmPassword] = useState("");
+  const [isManagedSubmitting, setIsManagedSubmitting] = useState(false);
 
   const {
     control,
@@ -296,6 +303,9 @@ const ManageUserEdit: React.FC = () => {
       hasNoCivilId: false,
     },
   });
+
+  const showToast = useToastStore((s) => s.showToast);
+  const { mutateAsync: inviteManagedUser } = useInviteManagedUser();
 
   const maritalStatus = watch("maritalStatus");
   const vitalStatus = watch("vitalStatus");
@@ -539,6 +549,7 @@ const ManageUserEdit: React.FC = () => {
   useEffect(() => {
     if (!id) return;
     const u: User | undefined = users.find((x: any) => String(x.id) === String(id));
+    console.log("Editing user with id", id, "found user", u);
     if (u && u.userProfile) {
       const p = u.userProfile;
 
@@ -546,6 +557,7 @@ const ManageUserEdit: React.FC = () => {
         const uid = Number(userId) || 0;
         if (uid <= 0) return "";
         const found = users.find((x: any) => Number(x?.id) === uid);
+        console.log("Resolving name for userId", userId, "found", found);
         const prof: any = found?.userProfile;
         const first = String(prof?.firstName ?? "").trim();
         const fam = String(prof?.familyName ?? "").trim();
@@ -850,14 +862,105 @@ const ManageUserEdit: React.FC = () => {
     }
 
     console.log("[ManageUserEdit] UpdateUser payload", updatePayload);
-    await postData<typeof updatePayload, BaseResponse<any>>("/Admin/UpdateUser", updatePayload);
+    try {
+      await postData<typeof updatePayload, BaseResponse<any>>("/Admin/UpdateUser", updatePayload);
+      showToast("User saved successfully", "success");
+    } catch (error: any) {
+      const msg = error?.message || "Failed to save user";
+      showToast(msg, "error");
+    }
+  };
+
+  const handleManagedUserSubmit = async () => {
+    if (!managedEmail.trim()) {
+      showToast("Email is required", "error");
+      return;
+    }
+    if (!managedPassword.trim()) {
+      showToast("Password is required", "error");
+      return;
+    }
+    if (!managedConfirmPassword.trim()) {
+      showToast("Confirm password is required", "error");
+      return;
+    }
+    if (managedPassword !== managedConfirmPassword) {
+      showToast("Passwords do not match", "error");
+      return;
+    }
+
+    // Validate password strength (same rules as user edit form)
+    const password = managedPassword;
+    if (password.length < 6) {
+      showToast("Password must be at least 6 characters", "error");
+      return;
+    }
+    if (!/[a-z]/.test(password)) {
+      showToast("Password must include at least 1 lowercase letter", "error");
+      return;
+    }
+    if (!/[A-Z]/.test(password)) {
+      showToast("Password must include at least 1 uppercase letter", "error");
+      return;
+    }
+    if (!/[0-9]/.test(password)) {
+      showToast("Password must include at least 1 number", "error");
+      return;
+    }
+    if (!/[^A-Za-z0-9]/.test(password)) {
+      showToast("Password must include at least 1 special character", "error");
+      return;
+    }
+
+    setIsManagedSubmitting(true);
+    try {
+      await inviteManagedUser({
+        userId: currentUser?.managedBy?.managedByUserId!,
+        managedUserId: currentUser?.managedBy?.managedUserId!,
+        email: managedEmail,
+        password: managedPassword,
+        confirmPassword: managedConfirmPassword,
+      });
+      showToast("Managed user invited successfully", "success");
+      setIsManagedModalOpen(false);
+      setManagedEmail("");
+      setManagedPassword("");
+      setManagedConfirmPassword("");
+    } catch (error: any) {
+      const msg = error?.message || "Failed to invite managed user";
+      showToast(msg, "error");
+    } finally {
+      setIsManagedSubmitting(false);
+    }
   };
 
   if (isLoading) return <div className="p-6">Loading...</div>;
 
+  const currentUser: User | undefined = users.find((x: any) => String(x.id) === String(id));
+  const managedByInfo = currentUser?.managedBy as any;
+
   return (
     <div className="p-6 max-w-3xl mx-auto bg-white dark:bg-slate-900 rounded shadow">
-      <h2 className="text-2xl font-bold mb-6 text-gray-900 dark:text-white">{id ? "Edit User" : "Create User"}</h2>
+      <div className="flex items-center justify-between mb-6">
+        <h2 className="text-2xl font-bold text-gray-900 dark:text-white">{id ? "Edit User" : "Create User"}</h2>
+        {managedByInfo && (
+          <button
+            type="button"
+            className="px-4 py-2 rounded bg-blue-600 text-white hover:bg-blue-700 transition font-semibold text-sm"
+            onClick={() => setIsManagedModalOpen(true)}
+          >
+            Create Managed User
+          </button>
+        )}
+      </div>
+
+      {managedByInfo && (
+        <div className="mb-6 p-4 rounded bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800">
+          <p className="text-sm text-blue-800 dark:text-blue-200">
+            <strong>This user is managed by:</strong> {managedByInfo.fullName} (ID: {managedByInfo.managedByUserId})
+          </p>
+        </div>
+      )}
       <form onSubmit={handleSubmit(onSubmit)} className="space-y-8">
         {/* Profile Picture Upload */}
         <div className="flex flex-col items-center mb-6">
@@ -1527,7 +1630,18 @@ const ManageUserEdit: React.FC = () => {
               render={({ field }) => (
                 <div>
                   {(field.value || []).map((sp: any, idx: number) => (
-                    <div key={idx} className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4 p-3 border rounded bg-gray-50 dark:bg-slate-800">
+                    <div key={idx} className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4 p-3 border rounded bg-gray-50 dark:bg-slate-800 relative">
+                      <button
+                        type="button"
+                        className="absolute top-2 right-2 px-2 py-1 rounded bg-red-600 text-white text-xs font-semibold hover:bg-red-700"
+                        onClick={() => {
+                          const arr = Array.isArray(field.value) ? [...field.value] : [];
+                          arr.splice(idx, 1); // Remove the spouse at this index
+                          field.onChange(arr);
+                        }}
+                      >
+                        Remove
+                      </button>
                       <div>
                         <label className="block text-sm font-medium text-gray-700 dark:text-gray-200 mb-1">Spouse ID</label>
                         <UserSearchSelect
@@ -1786,6 +1900,70 @@ const ManageUserEdit: React.FC = () => {
           </button>
         </div>
       </form>
+
+      {/* Managed User Modal */}
+      {isManagedModalOpen && (
+        <div className="fixed inset-0 bg-black/50 dark:bg-black/70 flex items-center justify-center z-50">
+          <div className="bg-white dark:bg-slate-900 rounded shadow-lg p-6 max-w-md w-full mx-4">
+            <h3 className="text-lg font-bold mb-4 text-gray-900 dark:text-white">Create Managed User</h3>
+            
+            <div className="space-y-4">
+              <div>
+                <label className="block text-sm font-medium text-gray-700 dark:text-gray-200 mb-1">Email</label>
+                <input
+                  type="email"
+                  className="w-full px-3 py-2 rounded border border-gray-300 dark:border-gray-700 bg-gray-50 dark:bg-slate-800 text-gray-900 dark:text-gray-100 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  placeholder="Enter email"
+                  value={managedEmail}
+                  onChange={(e) => setManagedEmail(e.target.value)}
+                  disabled={isManagedSubmitting}
+                />
+              </div>
+
+              <div>
+                <label className="block text-sm font-medium text-gray-700 dark:text-gray-200 mb-1">Password</label>
+                <input
+                  type="password"
+                  className="w-full px-3 py-2 rounded border border-gray-300 dark:border-gray-700 bg-gray-50 dark:bg-slate-800 text-gray-900 dark:text-gray-100 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  placeholder="Enter password"
+                  value={managedPassword}
+                  onChange={(e) => setManagedPassword(e.target.value)}
+                  disabled={isManagedSubmitting}
+                />
+              </div>
+
+              <div>
+                <label className="block text-sm font-medium text-gray-700 dark:text-gray-200 mb-1">Confirm Password</label>
+                <input
+                  type="password"
+                  className="w-full px-3 py-2 rounded border border-gray-300 dark:border-gray-700 bg-gray-50 dark:bg-slate-800 text-gray-900 dark:text-gray-100 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  placeholder="Confirm password"
+                  value={managedConfirmPassword}
+                  onChange={(e) => setManagedConfirmPassword(e.target.value)}
+                  disabled={isManagedSubmitting}
+                />
+              </div>
+            </div>
+
+            <div className="flex items-center gap-3 mt-6">
+              <button
+                className="flex-1 px-4 py-2 rounded bg-blue-600 text-white hover:bg-blue-700 transition font-semibold disabled:bg-blue-300"
+                onClick={handleManagedUserSubmit}
+                disabled={isManagedSubmitting}
+              >
+                {isManagedSubmitting ? "Creating..." : "Create"}
+              </button>
+              <button
+                className="flex-1 px-4 py-2 rounded bg-gray-200 dark:bg-gray-700 text-gray-800 dark:text-gray-200 hover:bg-gray-300 dark:hover:bg-gray-600 transition font-semibold"
+                onClick={() => setIsManagedModalOpen(false)}
+                disabled={isManagedSubmitting}
+              >
+                Cancel
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 };
