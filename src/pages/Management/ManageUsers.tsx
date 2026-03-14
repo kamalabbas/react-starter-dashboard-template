@@ -4,14 +4,21 @@ import useUsersList from "@/hooks/useUsersList";
 import BasicTable, { Column } from "@/components/tables/BasicTables/BasicTable";
 import { User } from "@/interface/user.interface";
 import UserAvatar from "@/components/ui/avatar/UserAvatar";
+import { useToastStore } from "@/stores/toastStore";
+import useChangeEmailByAdmin from "@/hooks/useChangeEmailByAdmin";
 
 const ManageUsers: React.FC = () => {
   const { data: users = [], isLoading, isError } = useUsersList();
   const [search, setSearch] = useState("");
 
-  // Search behavior:
-  // - digits-only query => match ID only
-  // - otherwise => match name or email
+  const [emailModalOpen, setEmailModalOpen] = useState(false);
+  const [selectedUser, setSelectedUser] = useState<User | null>(null);
+  const [newEmail, setNewEmail] = useState("");
+
+  const showToast = useToastStore((s) => s.showToast);
+
+  const changeEmailMutation = useChangeEmailByAdmin();
+
   const filteredUsers = users.filter((u) => {
     const raw = search.trim();
     if (!raw) return true;
@@ -20,10 +27,10 @@ const ManageUsers: React.FC = () => {
     if (isNumericQuery) {
       return String(u.id).includes(raw);
     }
-
     const q = raw.toLowerCase();
 
     const profile = u.userProfile;
+
     const fullName = profile ? `${profile.firstName} ${profile.familyName}` : "";
     return fullName.toLowerCase().includes(q) || u.email.toLowerCase().includes(q);
   });
@@ -111,42 +118,100 @@ const ManageUsers: React.FC = () => {
       className: "text-right",
       align: "right",
       render: (u) => (
-        <Link
-          to={`/manage-users/${u.id}/edit`}
-          className="inline-block px-3 py-1 rounded bg-blue-600 hover:bg-blue-700 text-white text-xs font-semibold transition shadow"
-        >
-          Edit
-        </Link>
+        <>
+          <div className="flex gap-2">
+            <Link
+              to={`/manage-users/${u.id}/edit`}
+              className="px-3 py-1 rounded bg-blue-600 hover:bg-blue-700 text-white text-xs font-semibold transition shadow flex items-center"
+            >
+              Edit
+            </Link>
+
+            <button
+              onClick={() => openEmailModal(u)}
+              className="px-3 py-1 rounded bg-amber-500 hover:bg-amber-600 text-white text-xs font-semibold transition shadow flex shrink-0"
+            >
+              Change Email
+            </button>
+          </div>
+        </>
       ),
     },
   ];
 
+  const openEmailModal = (user: User) => {
+    setSelectedUser(user);
+    setNewEmail(user.email);
+    setEmailModalOpen(true);
+  };
+
   return (
-    <div className="p-6">
-      <div className="flex items-center justify-between mb-4">
-        <h1 className="font-semibold text-gray-800 text-title-sm dark:text-white/90 sm:text-title-md">
-          Manage Users
-        </h1>
-        <input
-          type="text"
-          className="px-3 py-2 rounded border border-gray-300 dark:border-gray-700 bg-gray-50 dark:bg-slate-800 text-gray-900 dark:text-gray-100 focus:outline-none focus:ring-2 focus:ring-blue-500 w-64"
-          placeholder="Search by ID (numbers) or name/email..."
-          value={search}
-          onChange={(e) => setSearch(e.target.value)}
-        />
+    <>
+      <div className="p-6">
+        <div className="flex items-center justify-between mb-4">
+          <h1 className="font-semibold text-gray-800 text-title-sm dark:text-white/90 sm:text-title-md">Manage Users</h1>
+          <input
+            type="text"
+            className="px-3 py-2 rounded border border-gray-300 dark:border-gray-700 bg-gray-50 dark:bg-slate-800 text-gray-900 dark:text-gray-100 focus:outline-none focus:ring-2 focus:ring-blue-500 w-64"
+            placeholder="Search by ID (numbers) or name/email..."
+            value={search}
+            onChange={(e) => setSearch(e.target.value)}
+          />
+        </div>
+        <div className="mt-6">
+          <BasicTable<User>
+            columns={columns}
+            data={filteredUsers}
+            isLoading={isLoading}
+            isError={isError}
+            rowKey={(u) => u.id}
+            emptyMessage="No users found."
+            pagination={{ initialPage: 1, pageSize: 10 }}
+          />
+        </div>
       </div>
-      <div className="mt-6">
-        <BasicTable<User>
-          columns={columns}
-          data={filteredUsers}
-          isLoading={isLoading}
-          isError={isError}
-          rowKey={(u) => u.id}
-          emptyMessage="No users found."
-          pagination={{ initialPage: 1, pageSize: 10 }}
-        />
-      </div>
-    </div>
+
+      {emailModalOpen && (
+        <div className="fixed inset-0 flex items-center justify-center bg-black/40 z-50">
+          <div className="bg-white dark:bg-slate-900 rounded-lg shadow-lg w-96 p-6">
+            <h2 className="text-lg font-semibold mb-4 text-gray-800 dark:text-white">Change Email</h2>
+
+            <input
+              type="email"
+              value={newEmail}
+              onChange={(e) => setNewEmail(e.target.value)}
+              className="w-full px-3 py-2 border rounded mb-4 dark:bg-slate-800 dark:border-gray-700 dark:text-gray-100"
+            />
+
+            <div className="flex justify-end gap-2">
+              <button onClick={() => setEmailModalOpen(false)} className="px-3 py-1 text-sm bg-gray-300 rounded hover:bg-gray-400">
+                Cancel
+              </button>
+
+              <button
+                onClick={() => {
+                  if (!selectedUser) return;
+
+                  changeEmailMutation.mutate({ userId: selectedUser.id, newEmail: newEmail },
+                    {
+                      onSuccess: () => {
+                        showToast("Email changed successfully", "success");
+                        setEmailModalOpen(false);
+                      },
+                    },
+                  );
+
+                  setEmailModalOpen(false);
+                }}
+                className="px-3 py-1 text-sm bg-green-600 text-white rounded hover:bg-green-700"
+              >
+                Save
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+    </>
   );
 };
 
