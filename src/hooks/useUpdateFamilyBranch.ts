@@ -6,8 +6,8 @@ export interface UpdateFamilyBranchPayload {
   id?: number;
   name: string;
   countryId: number;
-  OrderId: number;
-  IsActive: boolean;
+  orderId: number;
+  isActive: boolean;
 }
 
 export default function useUpdateFamilyBranch() {

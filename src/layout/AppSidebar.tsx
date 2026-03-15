@@ -59,6 +59,7 @@ const navItems: NavItem[] = [
     icon: <PageIcon />,
     subItems: [
       { name: "Payment Types", path: "/configuration/payment-types" },
+      { name: "Family Branches", path: "/configuration/family-branches" },
       { name: "Ramadan Configuration", path: "/configuration/ramadan" },
     ],
   },

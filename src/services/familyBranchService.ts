@@ -2,14 +2,17 @@ import { getData } from "@/services/api";
 import { BaseResponse } from "@/interface/baseResponse.interface";
 
 export interface FamilyBranchItem {
-  id: number;
-  name: string;
-  countryId?: number;
+  countryId: number;
+  countryIso2: string;
   countryName?: string;
+  id: number;
+  isActive: boolean;
+  name: string;
+  orderId: number;
 }
 
 export interface FamilyBranchListResponse {
-  familyBranchList?: FamilyBranchItem[];
+  familyBranchList: FamilyBranchItem[];
   [key: string]: any;
 }
 
