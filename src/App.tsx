@@ -29,6 +29,8 @@ import ConfigurationPaymentTypes from "./pages/Management/ConfigurationPaymentTy
 import ConfigurationRamadan from "./pages/Management/ConfigurationRamadan";
 import ToastRenderer from "./components/common/ToastRenderer";
 import ConfigurationFamilyBranches from "./pages/Management/ConfigurationFamilyBranches";
+import CreateUser from "./pages/Management/createUser";
+import AboutUs from "./pages/AboutUs";
 
 export default function App() {
   return (
@@ -60,9 +62,10 @@ export default function App() {
             <Route path="/configuration" element={<Configuration />} />
             <Route path="/configuration/payment-types" element={<ConfigurationPaymentTypes />} />
             <Route path="/configuration/ramadan" element={<ConfigurationRamadan />} />
-            <Route path="/manage-users/create" element={<ManageUserEdit />} />
+            <Route path="/manage-users/create" element={<CreateUser />} />
             <Route path="/manage-users/:id/edit" element={<ManageUserEdit />} />
             <Route path="/configuration/family-branches" element={<ConfigurationFamilyBranches />} />
+            <Route path="/about-us" element={<AboutUs />} />
 
             {/* Ui Elements */}
             <Route path="/alerts" element={<Alerts />} />

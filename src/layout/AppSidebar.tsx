@@ -55,6 +55,16 @@ const navItems: NavItem[] = [
     ],
   },
   {
+    name: "Manage Pages",
+    icon: <PageIcon />,
+    subItems: [
+      {
+        name: "About Us",
+        path: "/about-us",
+      },
+    ],
+  },
+  {
     name: "Configuration",
     icon: <PageIcon />,
     subItems: [
