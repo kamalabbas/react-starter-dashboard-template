@@ -16,8 +16,8 @@ export interface FamilyBranchListResponse {
   [key: string]: any;
 }
 
-export const getFamilyBranches = async (countryIso2: string) => {
+export const getFamilyBranches = async (countryIso2?: string, includeNotActive?: boolean) => {
   const iso = (countryIso2 || "").toString().toUpperCase();
   const endpoint = (import.meta as any).env?.VITE_FAMILY_BRANCHES_ENDPOINT || "/FamilyTreeBe/GetFamilyBranches";
-  return getData<BaseResponse<FamilyBranchListResponse>>(endpoint, { params: { countryIso2: iso } });
+  return getData<BaseResponse<FamilyBranchListResponse>>(endpoint, { params: { countryIso2: iso, includeNotActive } });
 };

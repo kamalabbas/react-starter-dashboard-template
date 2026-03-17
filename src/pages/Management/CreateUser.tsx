@@ -949,7 +949,7 @@ const CreateUser: React.FC = () => {
             className="px-4 py-2 rounded bg-blue-600 text-white hover:bg-blue-700 transition font-semibold text-sm"
             onClick={() => setIsManagedModalOpen(true)}
           >
-            Create Managed User
+            Convert Managed User
           </button>
         )}
       </div>
@@ -1905,7 +1905,7 @@ const CreateUser: React.FC = () => {
       {isManagedModalOpen && (
         <div className="fixed inset-0 bg-black/50 dark:bg-black/70 flex items-center justify-center z-50">
           <div className="bg-white dark:bg-slate-900 rounded shadow-lg p-6 max-w-md w-full mx-4">
-            <h3 className="text-lg font-bold mb-4 text-gray-900 dark:text-white">Create Managed User</h3>
+            <h3 className="text-lg font-bold mb-4 text-gray-900 dark:text-white">Convert Managed User</h3>
             
             <div className="space-y-4">
               <div>

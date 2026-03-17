@@ -133,3 +133,8 @@ export enum PaymentStatus {
   PAID = "PAID",
   CANCELED = "CANCELED"
 }
+
+export enum BranchCountry {
+  LB = "120",
+  SY = "210"
+}
