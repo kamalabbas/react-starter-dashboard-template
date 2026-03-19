@@ -47,6 +47,7 @@ const toDateOnlyOrNull = (value: unknown) => {
 };
 
 const schema = yup.object({
+  isInDandashiFamily: yup.boolean().default(false),
   email: yup.string().email("Invalid email").required("Email is required"),
   firstName: yup.string().required("First name is required"),
   tempFatherName: yup.string(),
@@ -182,6 +183,7 @@ const schema = yup.object({
     }),
   spouseList: yup
     .array()
+    .ensure()
     .of(
       yup.object({
         spouseId: yup.string().nullable(),
@@ -197,7 +199,36 @@ const schema = yup.object({
           }),
       }),
     )
-    .max(4, "Maximum 4 spouses"),
+    .max(4, "Maximum 4 spouses")
+    .when("familyName", ([familyName], schema) => {
+      const name = String(familyName || "").toLowerCase();
+      const normalized = name.replace(/[^\p{L}\p{N}\s]/gu, "");
+
+      const dandashiTokens = [
+        "dandachi",
+        "dandachli",
+        "eldandachli",
+        "dandashi",
+        "dandashli",
+        "eldandashli",
+        "dandashy",
+        "dandashly",
+        "eldandashly",
+        "eldandashy",
+        "dandashle",
+        "dandachle",
+        "dandache",
+        "dandashe",
+        "دندشي",
+        "دندشلي",
+        "الدندشلي",
+        "الدندشي",
+      ];
+
+      const isInDandashi = dandashiTokens.some((t) => normalized.includes(t));
+
+      return isInDandashi ? schema : schema.required("Spouse is required").min(1, "Spouse is required");
+    }),
   civilFamilyGovernorateId: yup.string().nullable(),
   civilFamilyDistrictId: yup.string().nullable(),
   civilFamilyCityId: yup.string().nullable(),
@@ -230,6 +261,8 @@ const CreateUser: React.FC = () => {
     handleSubmit,
     setValue,
     watch,
+    reset,
+    trigger,
     formState: { errors, isSubmitting },
   } = useForm({
     resolver: yupResolver(schema),
@@ -305,6 +338,41 @@ const CreateUser: React.FC = () => {
 
   const showToast = useToastStore((s) => s.showToast);
   const { mutateAsync: inviteManagedUser } = useInviteManagedUser();
+
+  const dandashiTokens = [
+    "dandachi",
+    "dandachli",
+    "eldandachli",
+    "dandashi",
+    "dandashli",
+    "eldandashli",
+    "dandashy",
+    "dandashly",
+    "eldandashly",
+    "eldandashy",
+    "dandashle",
+    "dandachle",
+    "dandache",
+    "dandashe",
+    "دندشي",
+    "دندشلي",
+    "الدندشلي",
+    "الدندشي",
+  ];
+
+  const watchedFamily = watch("familyName");
+
+  useEffect(() => {
+    const name = (watchedFamily || "").toLowerCase();
+    const normalized = name.replace(/[^\p{L}\p{N}\s]/gu, "");
+
+    const isInDandashi = dandashiTokens.some((t) => normalized.includes(t));
+
+    setValue("isInDandashiFamily", isInDandashi, {
+      shouldValidate: true,
+      shouldDirty: true,
+    });
+  }, [watchedFamily, setValue]);
 
   const maritalStatus = watch("maritalStatus");
   const vitalStatus = watch("vitalStatus");
@@ -591,6 +659,8 @@ const CreateUser: React.FC = () => {
     //   console.error("[ManageUserEdit] Missing/invalid userId", id);
     //   return;
     // }
+    const valid = await trigger("spouseList");
+    if (!valid) return;
 
     const resolveCountryId = (raw: unknown) => {
       const s = raw == null ? "" : String(raw).trim();
@@ -706,7 +776,7 @@ const CreateUser: React.FC = () => {
 
     try {
       const res = await postData<typeof updatePayload, BaseResponse<any>>("/Admin/CreateUser", updatePayload);
-      const userId = res?.data?.data?.userId;
+      const userId = res?.data?.user?.id;
 
       if (profilePic && userId) {
         const formData = new FormData();
@@ -719,6 +789,10 @@ const CreateUser: React.FC = () => {
         });
       }
       showToast("User created successfully", "success");
+
+      reset();
+      setProfilePic(null);
+      setProfilePicUrl(null);
     } catch (error: any) {
       const msg = error?.message || "Failed to create user";
       showToast(msg, "error");
@@ -1547,9 +1621,10 @@ const CreateUser: React.FC = () => {
                         },
                       ]);
                     }}
-                  >
+                    >
                     Add Spouse
                   </button>
+                  {errors.spouseList?.message && <p className="text-error-500 text-sm mt-1">{errors.spouseList.message as string}</p>}
                 </div>
               )}
             />

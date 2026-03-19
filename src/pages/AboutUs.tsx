@@ -154,15 +154,9 @@ export default function AboutUs() {
               MediaEmbed,
               Undo,
             ],
-image: {
-  toolbar: [
-    "imageStyle:inline",
-    "imageStyle:block",
-    "imageStyle:side",
-    "|",
-    "resizeImage"
-  ]
-},
+            image: {
+              toolbar: ["imageStyle:inline", "imageStyle:block", "imageStyle:side", "|", "resizeImage"],
+            },
 
             toolbar: {
               items: [
