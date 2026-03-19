@@ -46,11 +46,8 @@ const toDateOnlyOrNull = (value: unknown) => {
   return s.length >= 10 ? s.slice(0, 10) : null;
 };
 
-type UploadImageResponse = {
-  profilePicUrl: string;
-};
-
 const schema = yup.object({
+  email: yup.string().email("Invalid email").required("Email is required"),
   firstName: yup.string().required("First name is required"),
   tempFatherName: yup.string(),
   familyName: yup.string().required("Family name is required"),
@@ -73,25 +70,21 @@ const schema = yup.object({
     }),
   newPassword: yup
     .string()
-    .nullable()
+    .required("New password is required")
     .transform((value, originalValue) => (originalValue === "" ? null : value))
-    .test(
-      "password-strength",
-      "Password must be at least 6 characters and include 1 lowercase, 1 uppercase, 1 number, and 1 symbol",
-      (value) => {
-        if (value == null || String(value).length === 0) return true;
-        const v = String(value);
-        if (v.length < 6) return false;
-        if (!/[a-z]/.test(v)) return false;
-        if (!/[A-Z]/.test(v)) return false;
-        if (!/[0-9]/.test(v)) return false;
-        if (!/[^A-Za-z0-9]/.test(v)) return false;
-        return true;
-      }
-    ),
+    .test("password-strength", "Password must be at least 6 characters and include 1 lowercase, 1 uppercase, 1 number, and 1 symbol", (value) => {
+      if (value == null || String(value).length === 0) return true;
+      const v = String(value);
+      if (v.length < 6) return false;
+      if (!/[a-z]/.test(v)) return false;
+      if (!/[A-Z]/.test(v)) return false;
+      if (!/[0-9]/.test(v)) return false;
+      if (!/[^A-Za-z0-9]/.test(v)) return false;
+      return true;
+    }),
   confirmPassword: yup
     .string()
-    .nullable()
+    .required("Confirm password is required")
     .transform((value, originalValue) => (originalValue === "" ? null : value))
     .test("passwords", "Passwords must match", function (confirm) {
       const newPassword = this.parent?.newPassword;
@@ -130,7 +123,7 @@ const schema = yup.object({
         schoolName: yup.string().nullable(),
         startDate: yup.string().nullable(),
         endDate: yup.string().nullable(),
-      })
+      }),
     )
     .min(1, "At least one education record is required"),
   employmentList: yup
@@ -145,7 +138,7 @@ const schema = yup.object({
         reasonNotWorking: yup.string().nullable(),
         startDate: yup.string().nullable(),
         endDate: yup.string().nullable(),
-      })
+      }),
     )
     .min(1, "At least one employment record is required"),
   addressList: yup
@@ -157,7 +150,10 @@ const schema = yup.object({
           then: (s) => s.required("Address line 1 is required"),
           otherwise: (s) => s.nullable().transform((value, originalValue) => (originalValue === "" ? null : value)),
         }),
-        line2: yup.string().nullable().transform((value, originalValue) => (originalValue === "" ? null : value)),
+        line2: yup
+          .string()
+          .nullable()
+          .transform((value, originalValue) => (originalValue === "" ? null : value)),
         city: yup.string().when("addressTypeCode", {
           is: (v: unknown) => String(v || "").toUpperCase() === "ORIGIN",
           then: (s) => s.required("City is required"),
@@ -168,14 +164,17 @@ const schema = yup.object({
           then: (s) => s.required("State is required"),
           otherwise: (s) => s.nullable().transform((value, originalValue) => (originalValue === "" ? null : value)),
         }),
-        postalCode: yup.string().nullable().transform((value, originalValue) => (originalValue === "" ? null : value)),
+        postalCode: yup
+          .string()
+          .nullable()
+          .transform((value, originalValue) => (originalValue === "" ? null : value)),
         countryId: yup.string().when("addressTypeCode", {
           is: (v: unknown) => String(v || "").toUpperCase() === "ORIGIN",
           then: (s) => s.required("Country is required"),
           otherwise: (s) => s.nullable().transform((value, originalValue) => (originalValue === "" ? null : value)),
         }),
         addressTypeCode: yup.string().oneOf(["ORIGIN", "CURRENT"], "Invalid address type").required("Address type is required"),
-      })
+      }),
     )
     .test("origin-entry", "Origin address entry is required", (value) => {
       const list = Array.isArray(value) ? value : [];
@@ -196,7 +195,7 @@ const schema = yup.object({
             then: (s) => s.required("End date is required"),
             otherwise: (s) => s.nullable(),
           }),
-      })
+      }),
     )
     .max(4, "Maximum 4 spouses"),
   civilFamilyGovernorateId: yup.string().nullable(),
@@ -215,7 +214,6 @@ const CreateUser: React.FC = () => {
   const { data: users = [], isLoading } = useUsersList();
   const [profilePic, setProfilePic] = useState<File | null>(null);
   const [profilePicUrl, setProfilePicUrl] = useState<string | null>(null);
-  const [selfiePicUrl, setSelfiePicUrl] = useState<string | null>(null);
   const [initialFatherLabel, setInitialFatherLabel] = useState<string>("");
   const [initialMotherLabel, setInitialMotherLabel] = useState<string>("");
   const [initialSpouseLabels, setInitialSpouseLabels] = useState<string[]>([]);
@@ -236,6 +234,7 @@ const CreateUser: React.FC = () => {
   } = useForm({
     resolver: yupResolver(schema),
     defaultValues: {
+      email: "",
       firstName: "",
       tempFatherName: "",
       familyName: "",
@@ -345,7 +344,7 @@ const CreateUser: React.FC = () => {
   const { data: citiesList = [], isFetching: isFetchingCities } = useCities(
     selectedIso,
     Number(selectedCivilGovId) || 0,
-    Number(selectedCivilDistrictId) || 0
+    Number(selectedCivilDistrictId) || 0,
   );
 
   const { data: familyBranchesResp } = useGetFamilyBranches(selectedIso);
@@ -359,45 +358,30 @@ const CreateUser: React.FC = () => {
 
   const allCountryOptions = (Array.isArray(countriesList) ? countriesList : [])
     .map((c: any) => {
-      const iso2 = String(
-        c?.iso2 ??
-        c?.isoCode2 ??
-        c?.isoCode ??
-        c?.alpha2 ??
-        c?.countryIso2 ??
-        c?.countryCode ??
-        c?.code ??
-        ""
-      ).toUpperCase();
-      const name =
-        c?.name ??
-        c?.label ??
-        c?.countryName ??
-        c?.description ??
-        c?.englishName ??
-        c?.nameEn ??
-        iso2;
+      const iso2 = String(c?.iso2 ?? c?.isoCode2 ?? c?.isoCode ?? c?.alpha2 ?? c?.countryIso2 ?? c?.countryCode ?? c?.code ?? "").toUpperCase();
+      const name = c?.name ?? c?.label ?? c?.countryName ?? c?.description ?? c?.englishName ?? c?.nameEn ?? iso2;
       const id = c?.id ?? c?.value ?? c?.countryId ?? c?.countryID ?? c?.country_id;
       const value = id != null && String(id) !== "" ? String(id) : iso2 || String(name || "");
       return { value, label: String(name || value), iso2 };
     })
     .filter((o: any) => String(o.value || "").trim().length > 0);
 
-  const originCountryOptions = (allCountryOptions.length
-    ? allCountryOptions
-    : [
-      { value: "LB", label: "Lebanon", iso2: "LB" },
-      { value: "SY", label: "Syria", iso2: "SY" },
-    ]
+  const originCountryOptions = (
+    allCountryOptions.length
+      ? allCountryOptions
+      : [
+          { value: "LB", label: "Lebanon", iso2: "LB" },
+          { value: "SY", label: "Syria", iso2: "SY" },
+        ]
   ).filter((c: any) => ["LB", "SY"].includes(String(c.iso2).toUpperCase()));
 
   // IMPORTANT: current address MUST show ALL countries from API (no filter)
   const currentCountryOptions = allCountryOptions.length
     ? allCountryOptions
     : [
-      { value: "LB", label: "Lebanon", iso2: "LB" },
-      { value: "SY", label: "Syria", iso2: "SY" },
-    ];
+        { value: "LB", label: "Lebanon", iso2: "LB" },
+        { value: "SY", label: "Syria", iso2: "SY" },
+      ];
 
   const { getDomain: getLookupDomain } = useLookup([
     LookupDomain.GENDER,
@@ -422,25 +406,25 @@ const CreateUser: React.FC = () => {
   const effectiveGenderOptions = genderOptions.length
     ? genderOptions
     : [
-      { value: GenderCode.MALE, label: "Male" },
-      { value: GenderCode.FEMALE, label: "Female" },
-    ];
+        { value: GenderCode.MALE, label: "Male" },
+        { value: GenderCode.FEMALE, label: "Female" },
+      ];
 
   const effectiveMaritalOptions = maritalOptions.length
     ? maritalOptions
     : [
-      { value: MaritalStatusCode.SINGLE, label: "Single" },
-      { value: MaritalStatusCode.MARRIED, label: "Married" },
-      { value: MaritalStatusCode.WIDOWED, label: "Widowed" },
-      { value: MaritalStatusCode.DIVORCED, label: "Divorced" },
-    ];
+        { value: MaritalStatusCode.SINGLE, label: "Single" },
+        { value: MaritalStatusCode.MARRIED, label: "Married" },
+        { value: MaritalStatusCode.WIDOWED, label: "Widowed" },
+        { value: MaritalStatusCode.DIVORCED, label: "Divorced" },
+      ];
 
   const effectiveVitalStatusOptions = vitalStatusOptions.length
     ? vitalStatusOptions
     : [
-      { value: VITAL_STATUS.ALIVE, label: "Alive" },
-      { value: VITAL_STATUS.DECEASED, label: "Deceased" },
-    ];
+        { value: VITAL_STATUS.ALIVE, label: "Alive" },
+        { value: VITAL_STATUS.DECEASED, label: "Deceased" },
+      ];
   const isNoEducation = (code?: string) => {
     const c = String(code || "").toUpperCase();
     return c.includes("NO") && c.includes("EDU");
@@ -519,14 +503,14 @@ const CreateUser: React.FC = () => {
 
     const direct = String(
       obj?.parentName ??
-      obj?.spouseName ??
-      obj?.fullName ??
-      obj?.name ??
-      obj?.displayName ??
-      obj?.userName ??
-      obj?.parentFullName ??
-      obj?.spouseFullName ??
-      ""
+        obj?.spouseName ??
+        obj?.fullName ??
+        obj?.name ??
+        obj?.displayName ??
+        obj?.userName ??
+        obj?.parentFullName ??
+        obj?.spouseFullName ??
+        "",
     ).trim();
     if (direct) return direct;
 
@@ -547,130 +531,6 @@ const CreateUser: React.FC = () => {
   };
 
   useEffect(() => {
-    if (!id) return;
-    const u: User | undefined = users.find((x: any) => String(x.id) === String(id));
-    console.log("Editing user with id", id, "found user", u);
-    if (u && u.userProfile) {
-      const p = u.userProfile;
-
-      const getNameByUserId = (userId: any) => {
-        const uid = Number(userId) || 0;
-        if (uid <= 0) return "";
-        const found = users.find((x: any) => Number(x?.id) === uid);
-        console.log("Resolving name for userId", userId, "found", found);
-        const prof: any = found?.userProfile;
-        const first = String(prof?.firstName ?? "").trim();
-        const fam = String(prof?.familyName ?? "").trim();
-        const full = `${first} ${fam}`.trim();
-        return full || String(found?.email ?? "").trim();
-      };
-
-      setValue("firstName", p.firstName);
-      setValue("tempFatherName", p.tempFatherName);
-      setValue("familyName", p.familyName);
-      setValue(
-        "phoneNumber",
-        (p as any)?.phoneNumber ?? (p as any)?.mobileNumber ?? (p as any)?.phone ?? (p as any)?.mobile ?? ""
-      );
-      setValue("gender", p.genderCode);
-      setValue("dateOfBirth", p.dateOfBirth?.slice(0, 10));
-      setValue("maritalStatus", p.maritalStatusCode);
-      setValue("vitalStatus", p.vitalStatusCode || "");
-      setValue("deceasedDate", (p as any)?.deceasedDate ? String((p as any).deceasedDate).slice(0, 10) : "");
-      setValue(
-        "educationList",
-        Array.isArray(p.educationList) && p.educationList.length > 0
-          ? p.educationList.map((e) => ({
-            statusCode: e.statusCode,
-            educationTypeCode: e.educationTypeCode,
-            academicLevelCode: e.academicLevelCode,
-            instituteLevelCode: e.instituteLevelCode,
-            degreeTitle: e.degreeTitle,
-            major: e.major,
-            schoolName: e.schoolName,
-            startDate: e.startDate ? e.startDate.slice(0, 10) : "",
-            endDate: e.endDate ? e.endDate.slice(0, 10) : "",
-          }))
-          : [
-            {
-              statusCode: "",
-              educationTypeCode: "",
-              academicLevelCode: "",
-              instituteLevelCode: "",
-              degreeTitle: "",
-              major: "",
-              schoolName: "",
-              startDate: "",
-              endDate: "",
-            },
-          ]
-      );
-      setValue(
-        "employmentList",
-        Array.isArray(p.employmentList) && p.employmentList.length > 0
-          ? p.employmentList.map((e) => ({
-            statusCode: e.statusCode,
-            workplace: e.workplace,
-            companyName: e.companyName,
-            occupation: e.occupation,
-            position: e.position,
-            reasonNotWorking: e.reasonNotWorking,
-            startDate: e.startDate ? e.startDate.slice(0, 10) : "",
-            endDate: e.endDate ? e.endDate.slice(0, 10) : "",
-          }))
-          : [{ statusCode: "", workplace: "", companyName: "", occupation: "", position: "", reasonNotWorking: "", startDate: "", endDate: "" }]
-      );
-      setValue("addressList", normalizeAddresses(p.addressList));
-      setValue(
-        "spouseList",
-        Array.isArray(p.spouseList)
-          ? p.spouseList.slice(0, 4).map((s) => ({
-            spouseId: s?.spouseId && Number(s.spouseId) > 0 ? String(s.spouseId) : "",
-            statusCode: s.statusCode,
-            startDate: s.startDate ? s.startDate.slice(0, 10) : "",
-            endDate: s.endDate ? s.endDate.slice(0, 10) : "",
-          }))
-          : []
-      );
-
-      setInitialSpouseLabels(
-        Array.isArray(p.spouseList)
-          ? p.spouseList.slice(0, 4).map((s) => {
-            const direct = extractDisplayName(s);
-            if (direct) return direct;
-            return getNameByUserId(s?.spouseId);
-          })
-          : []
-      );
-      setValue("civilFamilyGovernorateId", p.civilFamily?.civilFamilyGovernorateId?.toString());
-      setValue("civilFamilyDistrictId", p.civilFamily?.civilFamilyDistrictId?.toString());
-      setValue("civilFamilyCityId", p.civilFamily?.civilFamilyCityId?.toString());
-      setValue("civilFamilyNumber", p.civilFamily?.civilFamilyNumber);
-
-      setInitialFatherLabel(extractDisplayName(p.father) || getNameByUserId(p.father?.parentId));
-      setInitialMotherLabel(extractDisplayName(p.mother) || getNameByUserId(p.mother?.parentId));
-
-      const isNoCivil = String(p.civilFamily?.civilFamilyNumber || "") === "-999";
-      setValue("hasNoCivilId", isNoCivil);
-      if (isNoCivil) {
-        setValue("civilFamilyGovernorateId", "");
-        setValue("civilFamilyDistrictId", "");
-        setValue("civilFamilyCityId", "");
-        setValue("civilFamilyNumber", "-999");
-      }
-
-      // Family Branch prefill: backend sometimes returns familyBranch with id=0 but provides familyBranchId separately.
-      setInitialFamilyBranchName(String(p?.familyBranch?.name ?? "").trim());
-      setInitialFamilyBranchCountryId(Number(p?.familyBranch?.countryId) || 0);
-      setValue("familyBranchId", extractFamilyBranchId(p));
-      setValue("fatherId", p?.father?.parentId && Number(p.father.parentId) > 0 ? String(p.father.parentId) : "");
-      setValue("motherId", p?.mother?.parentId && Number(p.mother.parentId) > 0 ? String(p.mother.parentId) : "");
-      setProfilePicUrl(p.profilePicUrl || null);
-      setSelfiePicUrl(p.selfiePicUrl || null);
-    }
-  }, [id, users, setValue]);
-
-  useEffect(() => {
     // If we didn't get a numeric id from the profile, try resolving by name once the branches list is available.
     const current = String(watch("familyBranchId") ?? "").trim();
     if (current) return;
@@ -678,7 +538,12 @@ const CreateUser: React.FC = () => {
     if (!name) return;
     if (!Array.isArray(familyBranchesList) || familyBranchesList.length === 0) return;
 
-    const byName = familyBranchesList.find((b: any) => String(b?.name ?? "").trim().toLowerCase() === name.toLowerCase());
+    const byName = familyBranchesList.find(
+      (b: any) =>
+        String(b?.name ?? "")
+          .trim()
+          .toLowerCase() === name.toLowerCase(),
+    );
     if (byName?.id && Number(byName.id) > 0) {
       setValue("familyBranchId", String(byName.id), { shouldDirty: false });
       return;
@@ -721,11 +586,11 @@ const CreateUser: React.FC = () => {
   }, [maritalStatus, setValue]);
 
   const onSubmit = async (data: any) => {
-    const userId = Number(id);
-    if (!Number.isFinite(userId) || userId <= 0) {
-      console.error("[ManageUserEdit] Missing/invalid userId", id);
-      return;
-    }
+    // const userId = Number(id);
+    // if (!Number.isFinite(userId) || userId <= 0) {
+    //   console.error("[ManageUserEdit] Missing/invalid userId", id);
+    //   return;
+    // }
 
     const resolveCountryId = (raw: unknown) => {
       const s = raw == null ? "" : String(raw).trim();
@@ -737,34 +602,13 @@ const CreateUser: React.FC = () => {
 
       const iso = s.toUpperCase();
       const match = (Array.isArray(countriesList) ? countriesList : []).find((c: any) => {
-        const cIso = String(
-          c?.iso2 ?? c?.isoCode2 ?? c?.isoCode ?? c?.alpha2 ?? c?.countryIso2 ?? c?.countryCode ?? c?.code ?? ""
-        ).toUpperCase();
+        const cIso = String(c?.iso2 ?? c?.isoCode2 ?? c?.isoCode ?? c?.alpha2 ?? c?.countryIso2 ?? c?.countryCode ?? c?.code ?? "").toUpperCase();
         return cIso === iso;
       });
 
       const cid = Number(match?.id ?? match?.countryId ?? match?.value);
       return Number.isFinite(cid) && cid > 0 ? cid : null;
     };
-
-    // 1) Upload image (if changed)
-    if (profilePic) {
-      const formData = new FormData();
-      formData.append("profilePicture", profilePic, profilePic.name);
-      formData.append("userId", String(userId));
-
-      const uploadRes = await postData<FormData, BaseResponse<UploadImageResponse>>(
-        `/FamilyTreeBe/UploadProfilePicture/${userId}`,
-        formData,
-        { headers: { "Content-Type": "multipart/form-data" } }
-      );
-
-      const newUrl = uploadRes?.data?.profilePicUrl;
-      if (newUrl) {
-        setProfilePicUrl(newUrl);
-        setProfilePic(null);
-      }
-    }
 
     // 2) Update user
     const spouseList = (Array.isArray(data?.spouseList) ? data.spouseList : [])
@@ -826,8 +670,9 @@ const CreateUser: React.FC = () => {
       .filter((e: any) => e.statusCode);
 
     const updatePayload: any = {
-      userId,
-      newPassword: toNullableString(data?.newPassword),
+      userRoleCode: null,
+      email: toNullableString(data?.email),
+      Password: toNullableString(data?.newPassword),
       confirmPassword: toNullableString(data?.confirmPassword),
       firstName: String(data?.firstName ?? "").trim(),
       familyName: String(data?.familyName ?? "").trim(),
@@ -842,9 +687,7 @@ const CreateUser: React.FC = () => {
       civilFamilyGovernorateId: toNullablePositiveInt(data?.civilFamilyGovernorateId),
       vitalStatusCode: String(data?.vitalStatus ?? "").trim(),
       deceasedDate:
-        String(data?.vitalStatus ?? "").toUpperCase() === String(VITAL_STATUS.DECEASED).toUpperCase()
-          ? toDateOnlyOrNull(data?.deceasedDate)
-          : null,
+        String(data?.vitalStatus ?? "").toUpperCase() === String(VITAL_STATUS.DECEASED).toUpperCase() ? toDateOnlyOrNull(data?.deceasedDate) : null,
       statusCode: "ACTIVE",
       fatherId: toNullablePositiveInt(data?.fatherId),
       motherId: toNullablePositiveInt(data?.motherId),
@@ -861,12 +704,23 @@ const CreateUser: React.FC = () => {
       updatePayload.civilFamilyNumber = "-999";
     }
 
-    console.log("[ManageUserEdit] UpdateUser payload", updatePayload);
     try {
-      await postData<typeof updatePayload, BaseResponse<any>>("/Admin/UpdateUser", updatePayload);
-      showToast("User saved successfully", "success");
+      const res = await postData<typeof updatePayload, BaseResponse<any>>("/Admin/CreateUser", updatePayload);
+      const userId = res?.data?.data?.userId;
+
+      if (profilePic && userId) {
+        const formData = new FormData();
+
+        formData.append("profilePicture", profilePic);
+        formData.append("userId", String(userId));
+
+        await postData<FormData, BaseResponse<any>>(`/FamilyTreeBe/UploadProfilePicture/${userId}`, formData, {
+          headers: { "Content-Type": "multipart/form-data" },
+        });
+      }
+      showToast("User created successfully", "success");
     } catch (error: any) {
-      const msg = error?.message || "Failed to save user";
+      const msg = error?.message || "Failed to create user";
       showToast(msg, "error");
     }
   };
@@ -977,22 +831,20 @@ const CreateUser: React.FC = () => {
                 )}
               </div>
             </div>
-
-            <div className="flex flex-col items-center">
-              <span className="text-xs text-gray-600 dark:text-gray-300 mb-1">Selfie</span>
-              <div className="w-32 h-32 rounded-full bg-gray-200 dark:bg-gray-700 overflow-hidden flex items-center justify-center">
-                {selfiePicUrl ? (
-                  <img src={selfiePicUrl} alt="Selfie" className="object-cover w-full h-full" />
-                ) : (
-                  <span className="text-gray-400 dark:text-gray-500">No Image</span>
-                )}
-              </div>
-            </div>
           </div>
           <FileInput onChange={(e) => setProfilePic(e.target.files?.[0] || null)} />
         </div>
         {/* Personal Info */}
         <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+          <div>
+            <label className="block text-sm font-medium text-gray-700 dark:text-gray-200">Email</label>
+            <Controller
+              name="email"
+              control={control}
+              render={({ field }) => <Input {...field} type="email" placeholder="Email" error={!!errors.email} />}
+            />
+            {errors.email && <p className="text-error-500 text-xs mt-1">{errors.email.message}</p>}
+          </div>
           <div>
             <label className="block text-sm font-medium text-gray-700 dark:text-gray-200">First Name</label>
             <Controller
@@ -1026,14 +878,7 @@ const CreateUser: React.FC = () => {
             <Controller
               name="phoneNumber"
               control={control}
-              render={({ field }) => (
-                <Input
-                  {...field}
-                  placeholder="Phone number"
-                  value={field.value ?? ""}
-                  error={!!errors.phoneNumber}
-                />
-              )}
+              render={({ field }) => <Input {...field} placeholder="Phone number" value={field.value ?? ""} error={!!errors.phoneNumber} />}
             />
             {errors.phoneNumber && <p className="text-error-500 text-xs mt-1">{errors.phoneNumber.message as any}</p>}
           </div>
@@ -1140,13 +985,7 @@ const CreateUser: React.FC = () => {
               name="newPassword"
               control={control}
               render={({ field }) => (
-                <Input
-                  {...field}
-                  type="password"
-                  placeholder="New password"
-                  value={field.value ?? ""}
-                  error={!!errors.newPassword}
-                />
+                <Input {...field} type="password" placeholder="New password" value={field.value ?? ""} error={!!errors.newPassword} />
               )}
             />
             {errors.newPassword && <p className="text-error-500 text-xs mt-1">{errors.newPassword.message as any}</p>}
@@ -1158,13 +997,7 @@ const CreateUser: React.FC = () => {
               name="confirmPassword"
               control={control}
               render={({ field }) => (
-                <Input
-                  {...field}
-                  type="password"
-                  placeholder="Confirm password"
-                  value={field.value ?? ""}
-                  error={!!errors.confirmPassword}
-                />
+                <Input {...field} type="password" placeholder="Confirm password" value={field.value ?? ""} error={!!errors.confirmPassword} />
               )}
             />
             {errors.confirmPassword && <p className="text-error-500 text-xs mt-1">{errors.confirmPassword.message as any}</p>}
@@ -1173,9 +1006,7 @@ const CreateUser: React.FC = () => {
         {/* Education Section */}
         <div>
           <h3 className="font-semibold text-lg mb-2 text-gray-900 dark:text-white">Education</h3>
-          {(errors as any)?.educationList?.message && (
-            <p className="text-error-500 text-xs mt-1">{(errors as any).educationList.message}</p>
-          )}
+          {(errors as any)?.educationList?.message && <p className="text-error-500 text-xs mt-1">{(errors as any).educationList.message}</p>}
           <Controller
             name="educationList"
             control={control}
@@ -1334,9 +1165,7 @@ const CreateUser: React.FC = () => {
         {/* Employment Section */}
         <div>
           <h3 className="font-semibold text-lg mb-2 text-gray-900 dark:text-white">Employment</h3>
-          {(errors as any)?.employmentList?.message && (
-            <p className="text-error-500 text-xs mt-1">{(errors as any).employmentList.message}</p>
-          )}
+          {(errors as any)?.employmentList?.message && <p className="text-error-500 text-xs mt-1">{(errors as any).employmentList.message}</p>}
           <Controller
             name="employmentList"
             control={control}
@@ -1472,9 +1301,7 @@ const CreateUser: React.FC = () => {
         {/* Address Section */}
         <div>
           <h3 className="font-semibold text-lg mb-2 text-gray-900 dark:text-white">Address</h3>
-          {(errors as any)?.addressList?.message && (
-            <p className="text-error-500 text-xs mt-1">{(errors as any).addressList.message}</p>
-          )}
+          {(errors as any)?.addressList?.message && <p className="text-error-500 text-xs mt-1">{(errors as any).addressList.message}</p>}
           <Controller
             name="addressList"
             control={control}
@@ -1906,7 +1733,7 @@ const CreateUser: React.FC = () => {
         <div className="fixed inset-0 bg-black/50 dark:bg-black/70 flex items-center justify-center z-50">
           <div className="bg-white dark:bg-slate-900 rounded shadow-lg p-6 max-w-md w-full mx-4">
             <h3 className="text-lg font-bold mb-4 text-gray-900 dark:text-white">Convert Managed User</h3>
-            
+
             <div className="space-y-4">
               <div>
                 <label className="block text-sm font-medium text-gray-700 dark:text-gray-200 mb-1">Email</label>
