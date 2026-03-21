@@ -1,7 +1,6 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { CKEditor } from "@ckeditor/ckeditor5-react";
 import { ImageResize, ImageStyle, ImageBlock, ImageInline } from "ckeditor5";
-
 import {
   ClassicEditor,
   Essentials,
@@ -30,18 +29,41 @@ import {
 } from "ckeditor5";
 
 import "ckeditor5/ckeditor5.css";
+import useAboutUsQuery from "@/hooks/useAboutUsQuery";
+import useUpdateAboutUsMutation from "@/hooks/useUpdateAboutUsMutation";
+import { useToastStore } from "@/stores/toastStore";
+
+// IMAGE UPLOAD ADAPTER
+type Loader = {
+  file: Promise<File | null>;
+};
 
 export default function AboutUs() {
   const [content, setContent] = useState("");
   const [showHtml, setShowHtml] = useState(false);
+  const [initialized, setInitialized] = useState(false);
+
+  const { data } = useAboutUsQuery();
+  const { updateAboutUs, uploadAboutUsMedia, undoAboutUsDraft } = useUpdateAboutUsMutation();
+
+    const showToast = useToastStore((s) => s.showToast);
+
+  useEffect(() => {
+    if (!initialized && data?.data?.aboutUsPage?.contentHtml) {
+      setContent(data.data.aboutUsPage.contentHtml);
+      setInitialized(true);
+    }
+  }, [data, initialized]);
 
   const savePage = () => {
-    console.log(content);
-  };
-
-  // ✅ IMAGE UPLOAD ADAPTER
-  type Loader = {
-    file: Promise<File | null>;
+    updateAboutUs.mutate({
+      contentHtml: content,
+      statusCode: "PUBLISHED",
+    }, {
+      onSuccess: () => {
+        showToast("About Us page updated", "success");
+      }
+    });
   };
 
   class MyUploadAdapter {
@@ -54,36 +76,20 @@ export default function AboutUs() {
     async upload(): Promise<{ default: string }> {
       const file = await this.loader.file;
 
-      // ✅ handle null safely
-      if (!file) {
-        throw new Error("No file provided");
-      }
+      // handle null safely
+      if (!file) throw new Error("No file provided");
 
-      // 🔹 TEMP: base64 (works now)
-      const base64 = await this.fileToBase64(file);
-
+      //  TEMP: base64 (works now)
+      // const base64 = await this.fileToBase64(file);
+      const res = await uploadAboutUsMedia.mutateAsync({
+        image: file,
+        statusCode: "PUBLISHED",
+      });
+      debugger;
       return {
-        default: base64 as string,
+        // default: base64 as string,
+        default: res.data?.url || "",
       };
-
-      // 🔴 LATER: your API
-      /*
-    const formData = new FormData();
-    formData.append("profilePicture", file);
-    formData.append("userId", String(userId));
-
-    const res = await postData<FormData, BaseResponse<any>>(
-      `/FamilyTreeBe/UploadProfilePicture/${userId}`,
-      formData,
-      {
-        headers: { "Content-Type": "multipart/form-data" }
-      }
-    );
-
-    return {
-      default: res.data.url
-    };
-    */
     }
 
     abort() {}
