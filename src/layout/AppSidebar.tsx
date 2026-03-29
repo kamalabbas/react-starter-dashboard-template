@@ -48,6 +48,10 @@ const navItems: NavItem[] = [
         path: "/manage-aid",
       },
       {
+        name: "Card Requests",
+        path: "/card-requests",
+      },
+      {
         name: "Sponsership",
         // icon: <PageIcon />,
         path: "/manage-sponsership",

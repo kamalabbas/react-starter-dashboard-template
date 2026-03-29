@@ -13,7 +13,13 @@ export const useGetHistoryPages = (options?: UseGetHistoryPagesOptions) => {
     queryKey: ["history-pages"],
     queryFn: async () => {
       const response = await getHistoryPages();
-      return response.historyPages || [];
+
+      // Support both API shapes:
+      // 1) { historyPages: [...] }
+      // 2) { data: { historyPages: [...] } }
+      const raw = response as any;
+      const pages = raw?.historyPages ?? raw?.data?.historyPages ?? [];
+      return Array.isArray(pages) ? pages : [];
     },
     staleTime: 5 * 60 * 1000, // 5 minutes
     gcTime: 10 * 60 * 1000, // 10 minutes (formerly cacheTime)

@@ -1,23 +1,74 @@
-import React, { useState } from "react";
+import React, { useMemo, useState } from "react";
 import { Link } from "react-router";
 import useUsersList from "@/hooks/useUsersList";
 import BasicTable, { Column } from "@/components/tables/BasicTables/BasicTable";
 import { User } from "@/interface/user.interface";
 import UserAvatar from "@/components/ui/avatar/UserAvatar";
+import Button from "@/components/ui/button/Button";
+import { Modal } from "@/components/ui/modal";
 import { useToastStore } from "@/stores/toastStore";
 import useChangeEmailByAdmin from "@/hooks/useChangeEmailByAdmin";
+import { useLookup } from "@/hooks/useLookup";
+import { LookupDomain } from "@/interface/enums";
+import useGetAllPermissions from "@/hooks/useGetAllPermissions";
+import useGetUserPermissions from "@/hooks/useGetUserPermissions";
+import useUpdateUserAccess from "@/hooks/useUpdateUserAccess";
 
 const ManageUsers: React.FC = () => {
   const { data: users = [], isLoading, isError } = useUsersList();
   const [search, setSearch] = useState("");
 
   const [emailModalOpen, setEmailModalOpen] = useState(false);
+  const [roleModalOpen, setRoleModalOpen] = useState(false);
   const [selectedUser, setSelectedUser] = useState<User | null>(null);
   const [newEmail, setNewEmail] = useState("");
+  const [selectedRoleCode, setSelectedRoleCode] = useState("");
+  const [selectedPermissionCodes, setSelectedPermissionCodes] = useState<string[]>([]);
 
   const showToast = useToastStore((s) => s.showToast);
 
   const changeEmailMutation = useChangeEmailByAdmin();
+  const updateUserAccessMutation = useUpdateUserAccess();
+  const { getDomain } = useLookup([LookupDomain.USER_ROLE]);
+  const { data: allPermissions = [], isLoading: isLoadingPermissions } = useGetAllPermissions();
+  const { data: currentUserPermissionCodes = [] } = useGetUserPermissions();
+
+  const roleOptions = useMemo(
+    () =>
+      (getDomain(LookupDomain.USER_ROLE) ?? [])
+        .map((item: any) => ({
+        value: String(item.code ?? item.lookupCode ?? item.value ?? ""),
+        label: String(item.description ?? item.label ?? item.name ?? item.displayName ?? item.code ?? ""),
+      }))
+        .filter((item) => item.value)
+        .filter((item) => item.value === "NORMAL_USER" || item.value === "ADMIN_USER"),
+    [getDomain]
+  );
+
+  const effectiveRoleOptions = useMemo(() => {
+    if (roleOptions.length > 0) return roleOptions;
+    return [
+      { value: "NORMAL_USER", label: "Normal User" },
+      { value: "ADMIN_USER", label: "Admin User" },
+    ];
+  }, [roleOptions]);
+
+  const normalizedPermissionOptions = useMemo(
+    () =>
+      allPermissions
+        .map((item) => ({
+          value: String(item.code ?? ""),
+          label: String(item.name ?? item.description ?? item.code ?? ""),
+          description: String(item.description ?? ""),
+        }))
+        .filter((item) => item.value),
+    [allPermissions]
+  );
+
+  const canManageAccess = useMemo(() => {
+    if (currentUserPermissionCodes.length === 0) return true;
+    return currentUserPermissionCodes.some((code) => /(ACCESS|ROLE|PERMISSION|USER)/i.test(code));
+  }, [currentUserPermissionCodes]);
 
   const filteredUsers = users.filter((u) => {
     const raw = search.trim();
@@ -133,6 +184,15 @@ const ManageUsers: React.FC = () => {
             >
               Change Email
             </button>
+
+            <button
+              onClick={() => openRoleModal(u)}
+              className="px-3 py-1 rounded bg-violet-600 hover:bg-violet-700 disabled:bg-gray-400 disabled:cursor-not-allowed text-white text-xs font-semibold transition shadow flex shrink-0"
+              disabled={!canManageAccess || u.userRoleCode === "SUPER_ADMIN"}
+              title={u.userRoleCode === "SUPER_ADMIN" ? "Super Admin cannot be edited" : (!canManageAccess ? "You do not have access-management permission" : undefined)}
+            >
+              Change Role
+            </button>
           </div>
         </>
       ),
@@ -143,6 +203,22 @@ const ManageUsers: React.FC = () => {
     setSelectedUser(user);
     setNewEmail(user.email);
     setEmailModalOpen(true);
+  };
+
+  const openRoleModal = (user: User) => {
+    setSelectedUser(user);
+    setSelectedRoleCode(user.userRoleCode === "NORMAL_USER" || user.userRoleCode === "ADMIN_USER" ? user.userRoleCode : "");
+    setSelectedPermissionCodes([]);
+    setRoleModalOpen(true);
+  };
+
+  const togglePermission = (permissionCode: string) => {
+    setSelectedPermissionCodes((prev) => {
+      if (prev.includes(permissionCode)) {
+        return prev.filter((code) => code !== permissionCode);
+      }
+      return [...prev, permissionCode];
+    });
   };
 
   return (
@@ -179,47 +255,160 @@ const ManageUsers: React.FC = () => {
         </div>
       </div>
 
-      {emailModalOpen && (
-        <div className="fixed inset-0 flex items-center justify-center bg-black/40 z-50">
-          <div className="bg-white dark:bg-slate-900 rounded-lg shadow-lg w-96 p-6">
-            <h2 className="text-lg font-semibold mb-4 text-gray-800 dark:text-white">Change Email</h2>
+      <Modal isOpen={emailModalOpen} onClose={() => setEmailModalOpen(false)} className="max-w-md">
+        <div className="p-6 pt-12 sm:pt-14">
+          <h2 className="text-lg font-semibold mb-4 text-gray-800 dark:text-white">Change Email</h2>
 
-            <input
-              type="email"
-              value={newEmail}
-              onChange={(e) => setNewEmail(e.target.value)}
-              className="w-full px-3 py-2 border rounded mb-4 dark:bg-slate-800 dark:border-gray-700 dark:text-gray-100"
-            />
+          <input
+            type="email"
+            value={newEmail}
+            onChange={(e) => setNewEmail(e.target.value)}
+            className="w-full px-3 py-2 border rounded mb-4 dark:bg-slate-800 dark:border-gray-700 dark:text-gray-100"
+          />
 
-            <div className="flex justify-end gap-2">
-              <button onClick={() => setEmailModalOpen(false)} className="px-3 py-1 text-sm bg-gray-300 rounded hover:bg-gray-400">
-                Cancel
-              </button>
+          <div className="flex justify-end gap-2">
+            <Button size="sm" variant="outline" onClick={() => setEmailModalOpen(false)}>
+              Cancel
+            </Button>
 
-              <button
-                onClick={() => {
-                  if (!selectedUser) return;
+            <Button
+              size="sm"
+              onClick={() => {
+                if (!selectedUser) return;
 
-                  changeEmailMutation.mutate(
-                    { userId: selectedUser.id, newEmail: newEmail },
-                    {
-                      onSuccess: () => {
-                        showToast("Email changed successfully", "success");
-                        setEmailModalOpen(false);
-                      },
+                changeEmailMutation.mutate(
+                  { userId: selectedUser.id, newEmail },
+                  {
+                    onSuccess: () => {
+                      showToast("Email changed successfully", "success");
+                      setEmailModalOpen(false);
                     },
-                  );
-
-                  setEmailModalOpen(false);
-                }}
-                className="px-3 py-1 text-sm bg-green-600 text-white rounded hover:bg-green-700"
-              >
-                Save
-              </button>
-            </div>
+                  },
+                );
+              }}
+              disabled={changeEmailMutation.isPending}
+            >
+              {changeEmailMutation.isPending ? "Saving..." : "Save"}
+            </Button>
           </div>
         </div>
-      )}
+      </Modal>
+
+      <Modal isOpen={roleModalOpen} onClose={() => setRoleModalOpen(false)} className="max-w-md">
+        <div className="p-6 pt-12 sm:pt-14">
+          <h2 className="text-lg font-semibold mb-2 text-gray-800 dark:text-white">Change User Role</h2>
+          <p className="text-sm text-gray-500 dark:text-gray-400 mb-4">
+            {selectedUser ? `Update the role for ${selectedUser.email}.` : "Select a role for the user."}
+          </p>
+
+          <select
+            value={selectedRoleCode}
+            onChange={(e) => setSelectedRoleCode(e.target.value)}
+            className="w-full px-3 py-2 border rounded mb-3 dark:bg-slate-800 dark:border-gray-700 dark:text-gray-100"
+            disabled={selectedUser?.userRoleCode === "SUPER_ADMIN"}
+          >
+            <option value="">Select a role</option>
+            {effectiveRoleOptions.map((option) => (
+              <option key={option.value} value={option.value}>
+                {option.label}
+              </option>
+            ))}
+          </select>
+
+          <div className="mb-4">
+            <div className="flex items-center justify-between mb-2">
+              <p className="text-sm font-medium text-gray-700 dark:text-gray-200">Permissions</p>
+              <div className="flex items-center gap-2 text-xs">
+                <button
+                  type="button"
+                  className="text-blue-600 hover:text-blue-700 disabled:text-gray-400"
+                  onClick={() => setSelectedPermissionCodes(normalizedPermissionOptions.map((item) => item.value))}
+                  disabled={normalizedPermissionOptions.length === 0 || selectedUser?.userRoleCode === "SUPER_ADMIN"}
+                >
+                  Select all
+                </button>
+                <button
+                  type="button"
+                  className="text-gray-600 hover:text-gray-700 dark:text-gray-300 disabled:text-gray-400"
+                  onClick={() => setSelectedPermissionCodes([])}
+                  disabled={selectedPermissionCodes.length === 0 || selectedUser?.userRoleCode === "SUPER_ADMIN"}
+                >
+                  Clear
+                </button>
+              </div>
+            </div>
+
+            <div className="max-h-48 overflow-y-auto border rounded p-2 space-y-2 dark:border-gray-700">
+              {isLoadingPermissions ? (
+                <p className="text-xs text-gray-500 dark:text-gray-400">Loading permissions...</p>
+              ) : normalizedPermissionOptions.length === 0 ? (
+                <p className="text-xs text-gray-500 dark:text-gray-400">No permission catalog returned from API.</p>
+              ) : (
+                normalizedPermissionOptions.map((permission) => (
+                  <label
+                    key={permission.value}
+                    className="flex items-start gap-2 p-1 rounded hover:bg-gray-50 dark:hover:bg-slate-800 cursor-pointer"
+                  >
+                    <input
+                      type="checkbox"
+                      checked={selectedPermissionCodes.includes(permission.value)}
+                      onChange={() => togglePermission(permission.value)}
+                      disabled={selectedUser?.userRoleCode === "SUPER_ADMIN"}
+                      className="mt-0.5"
+                    />
+                    <span className="text-sm text-gray-700 dark:text-gray-200">
+                      {permission.label}
+                      <span className="block text-xs text-gray-500 dark:text-gray-400">{permission.value}</span>
+                    </span>
+                  </label>
+                ))
+              )}
+            </div>
+          </div>
+
+          <p className="text-xs text-gray-500 dark:text-gray-400 mb-4">
+            {selectedUser?.userRoleCode === "SUPER_ADMIN"
+              ? "Super Admin cannot be edited."
+              : `Your edit permissions loaded: ${currentUserPermissionCodes.length}.`}
+          </p>
+
+          <div className="flex justify-end gap-2">
+            <Button size="sm" variant="outline" onClick={() => setRoleModalOpen(false)}>
+              Cancel
+            </Button>
+            <Button
+              size="sm"
+              onClick={async () => {
+                if (!selectedUser || !selectedRoleCode) return;
+                if (selectedUser.userRoleCode === "SUPER_ADMIN") {
+                  showToast("Super Admin cannot be edited", "error");
+                  return;
+                }
+                if (!canManageAccess) {
+                  showToast("You do not have permission to update user access", "error");
+                  return;
+                }
+
+                try {
+                  await updateUserAccessMutation.mutateAsync({
+                    userId: selectedUser.id,
+                    role: selectedRoleCode as "NORMAL_USER" | "ADMIN_USER",
+                    permissions: selectedPermissionCodes,
+                  });
+
+                  showToast("User access updated successfully", "success");
+                  setRoleModalOpen(false);
+                } catch (error: any) {
+                  showToast(error?.message ?? "Failed to update user access", "error");
+                }
+              }}
+              disabled={!selectedUser || !selectedRoleCode || updateUserAccessMutation.isPending || selectedUser?.userRoleCode === "SUPER_ADMIN" || !canManageAccess}
+            >
+              {updateUserAccessMutation.isPending ? "Saving..." : "Save Access"}
+            </Button>
+          </div>
+        </div>
+      </Modal>
     </>
   );
 };
