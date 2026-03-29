@@ -21,6 +21,7 @@ import { postData } from "@/services/api";
 import { BaseResponse } from "@/interface/baseResponse.interface";
 import { useToastStore } from "@/stores/toastStore";
 import { useInviteManagedUser } from "@/hooks/useManagedUser";
+import useActivity from "@/hooks/useActivity";
 
 // Expanded schema to match Expo form
 const normalizePassword = (value: unknown) => {
@@ -213,6 +214,9 @@ const ManageUserEdit: React.FC = () => {
   const { id } = useParams();
   const navigate = useNavigate();
   const { data: users = [], isLoading } = useUsersList();
+  const [activeTab, setActiveTab] = useState<"details" | "activity">("details");
+  const [activityPageNumber, setActivityPageNumber] = useState(1);
+  const [activityPageSize] = useState(50);
   const [profilePic, setProfilePic] = useState<File | null>(null);
   const [profilePicUrl, setProfilePicUrl] = useState<string | null>(null);
   const [selfiePicUrl, setSelfiePicUrl] = useState<string | null>(null);
@@ -936,11 +940,28 @@ const ManageUserEdit: React.FC = () => {
 
   if (isLoading) return <div className="p-6">Loading...</div>;
 
+  const selectedUserId = Number(id) || 0;
   const currentUser: User | undefined = users.find((x: any) => String(x.id) === String(id));
   const managedByInfo = currentUser?.managedBy as any;
+  const {
+    data: activityData,
+    isLoading: isActivityLoading,
+    isFetching: isActivityFetching,
+    error: activityError,
+  } = useActivity({
+    userId: selectedUserId,
+    pageNumber: activityPageNumber,
+    pageSize: activityPageSize,
+    enabled: activeTab === "activity" && selectedUserId > 0,
+  });
+
+  const activityList = activityData?.activityList ?? [];
+  const activityTotalPages = activityData?.totalPages ?? 1;
+  const activityHasPrev = activityPageNumber > 1;
+  const activityHasNext = activityPageNumber < activityTotalPages;
 
   return (
-    <div className="p-6 max-w-3xl mx-auto bg-white dark:bg-slate-900 rounded shadow">
+    <div className="p-6 max-w-5xl mx-auto bg-white dark:bg-slate-900 rounded shadow">
       <div className="flex items-center justify-between mb-6">
         <h2 className="text-2xl font-bold text-gray-900 dark:text-white">{id ? "Edit User" : "Create User"}</h2>
         {managedByInfo && (
@@ -962,6 +983,33 @@ const ManageUserEdit: React.FC = () => {
         </div>
       )}
       <form onSubmit={handleSubmit(onSubmit)} className="space-y-8">
+        <div className="flex items-center gap-2 border-b border-gray-200 dark:border-gray-700 pb-3">
+          <button
+            type="button"
+            className={`px-4 py-2 rounded-md text-sm font-semibold transition ${
+              activeTab === "details"
+                ? "bg-blue-600 text-white"
+                : "bg-gray-100 dark:bg-slate-800 text-gray-700 dark:text-gray-200 hover:bg-gray-200 dark:hover:bg-slate-700"
+            }`}
+            onClick={() => setActiveTab("details")}
+          >
+            Details
+          </button>
+          <button
+            type="button"
+            className={`px-4 py-2 rounded-md text-sm font-semibold transition ${
+              activeTab === "activity"
+                ? "bg-blue-600 text-white"
+                : "bg-gray-100 dark:bg-slate-800 text-gray-700 dark:text-gray-200 hover:bg-gray-200 dark:hover:bg-slate-700"
+            }`}
+            onClick={() => setActiveTab("activity")}
+          >
+            Activity
+          </button>
+        </div>
+
+        {activeTab === "details" ? (
+          <>
         {/* Profile Picture Upload */}
         <div className="flex flex-col items-center mb-6">
           <div className="flex items-center gap-4 mb-2">
@@ -1899,6 +1947,76 @@ const ManageUserEdit: React.FC = () => {
             Cancel
           </button>
         </div>
+          </>
+        ) : (
+          <div className="rounded border border-gray-200 dark:border-gray-700 p-4">
+            <div className="flex items-center justify-between mb-4">
+              <h3 className="text-base font-semibold text-gray-900 dark:text-white">Activity</h3>
+              <span className="text-xs text-gray-500 dark:text-gray-400">
+                Page {activityData?.pageNumber ?? activityPageNumber} of {activityTotalPages}
+              </span>
+            </div>
+
+            {isActivityLoading || isActivityFetching ? (
+              <div className="text-sm text-gray-600 dark:text-gray-300">Loading activity...</div>
+            ) : activityError ? (
+              <div className="text-sm text-error-500">Failed to load activity data.</div>
+            ) : activityList.length === 0 ? (
+              <div className="text-sm text-gray-600 dark:text-gray-300">No activity records found.</div>
+            ) : (
+              <div className="overflow-x-auto">
+                <table className="min-w-full text-sm">
+                  <thead>
+                    <tr className="border-b border-gray-200 dark:border-gray-700">
+                      <th className="py-2 pr-3 text-left font-semibold text-gray-700 dark:text-gray-200">Date</th>
+                      <th className="py-2 pr-3 text-left font-semibold text-gray-700 dark:text-gray-200">Action</th>
+                      <th className="py-2 pr-3 text-left font-semibold text-gray-700 dark:text-gray-200">Entity</th>
+                      <th className="py-2 pr-3 text-left font-semibold text-gray-700 dark:text-gray-200">Description</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {activityList.map((activity: any, index: number) => {
+                      const rowKey = String(activity?.id ?? activity?.activityId ?? `${activity?.createdAt ?? ""}-${index}`);
+                      const action = String(activity?.actionDescription ?? activity?.actionCode ?? "-");
+                      const entity = String(activity?.entityTypeDescription ?? activity?.entityTypeCode ?? "-");
+                      const description = String(activity?.description ?? activity?.message ?? activity?.details ?? "-");
+                      const dateValue = String(activity?.createdAt ?? activity?.activityDate ?? activity?.createdDate ?? "");
+                      const dateLabel = dateValue ? new Date(dateValue).toLocaleString() : "-";
+
+                      return (
+                        <tr key={rowKey} className="border-b border-gray-100 dark:border-gray-800">
+                          <td className="py-2 pr-3 text-gray-700 dark:text-gray-300 whitespace-nowrap">{dateLabel}</td>
+                          <td className="py-2 pr-3 text-gray-700 dark:text-gray-300">{action}</td>
+                          <td className="py-2 pr-3 text-gray-700 dark:text-gray-300">{entity}</td>
+                          <td className="py-2 pr-3 text-gray-700 dark:text-gray-300">{description}</td>
+                        </tr>
+                      );
+                    })}
+                  </tbody>
+                </table>
+              </div>
+            )}
+
+            <div className="flex items-center justify-end gap-2 mt-4">
+              <button
+                type="button"
+                className="px-3 py-1.5 rounded bg-gray-200 dark:bg-gray-700 text-gray-800 dark:text-gray-200 text-sm font-medium disabled:opacity-60"
+                disabled={!activityHasPrev || isActivityFetching}
+                onClick={() => setActivityPageNumber((p) => Math.max(1, p - 1))}
+              >
+                Previous
+              </button>
+              <button
+                type="button"
+                className="px-3 py-1.5 rounded bg-blue-600 text-white text-sm font-medium disabled:opacity-60"
+                disabled={!activityHasNext || isActivityFetching}
+                onClick={() => setActivityPageNumber((p) => p + 1)}
+              >
+                Next
+              </button>
+            </div>
+          </div>
+        )}
       </form>
 
       {/* Managed User Modal */}
