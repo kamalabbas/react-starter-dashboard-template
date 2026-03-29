@@ -31,6 +31,8 @@ import ToastRenderer from "./components/common/ToastRenderer";
 import ConfigurationFamilyBranches from "./pages/Management/ConfigurationFamilyBranches";
 
 import AboutUs from "./pages/AboutUs";
+import HistoryArticles from "./pages/HistoryArticles";
+import HistoryArticleEditor from "./pages/HistoryArticleEditor";
 import CreateUser from "./pages/Management/CreateUser";
 
 export default function App() {
@@ -67,6 +69,8 @@ export default function App() {
             <Route path="/manage-users/:id/edit" element={<ManageUserEdit />} />
             <Route path="/configuration/family-branches" element={<ConfigurationFamilyBranches />} />
             <Route path="/about-us" element={<AboutUs />} />
+            <Route path="/history-articles" element={<HistoryArticles />} />
+            <Route path="/history-articles/:id" element={<HistoryArticleEditor />} />
 
             {/* Ui Elements */}
             <Route path="/alerts" element={<Alerts />} />
