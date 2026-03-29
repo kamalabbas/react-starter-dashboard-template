@@ -44,7 +44,7 @@ export default function AboutUs() {
   const [initialized, setInitialized] = useState(false);
 
   const { data } = useAboutUsQuery();
-  const { updateAboutUs, uploadAboutUsMedia, undoAboutUsDraft } = useUpdateAboutUsMutation();
+  const { updateAboutUs, uploadAboutUsMedia } = useUpdateAboutUsMutation();
 
     const showToast = useToastStore((s) => s.showToast);
 
@@ -251,6 +251,7 @@ export default function AboutUs() {
           }}
           data={content}
           onChange={(event, editor) => {
+            console.log(event)
             setContent(editor.getData());
           }}
         />

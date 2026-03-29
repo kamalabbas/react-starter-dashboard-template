@@ -245,11 +245,11 @@ const CreateUser: React.FC = () => {
   const { data: users = [], isLoading } = useUsersList();
   const [profilePic, setProfilePic] = useState<File | null>(null);
   const [profilePicUrl, setProfilePicUrl] = useState<string | null>(null);
-  const [initialFatherLabel, setInitialFatherLabel] = useState<string>("");
-  const [initialMotherLabel, setInitialMotherLabel] = useState<string>("");
-  const [initialSpouseLabels, setInitialSpouseLabels] = useState<string[]>([]);
-  const [initialFamilyBranchName, setInitialFamilyBranchName] = useState<string>("");
-  const [initialFamilyBranchCountryId, setInitialFamilyBranchCountryId] = useState<number>(0);
+  const [initialFatherLabel] = useState<string>("");
+  const [initialMotherLabel] = useState<string>("");
+  const [initialSpouseLabels] = useState<string[]>([]);
+  const [initialFamilyBranchName] = useState<string>("");
+  const [initialFamilyBranchCountryId] = useState<number>(0);
   const [isManagedModalOpen, setIsManagedModalOpen] = useState(false);
   const [managedEmail, setManagedEmail] = useState("");
   const [managedPassword, setManagedPassword] = useState("");
@@ -552,51 +552,51 @@ const CreateUser: React.FC = () => {
     return result;
   };
 
-  const extractFamilyBranchId = (profile: any) => {
-    const raw =
-      profile?.familyBranchId ??
-      profile?.familyBranchID ??
-      profile?.familyBranch_id ??
-      profile?.familyBranch?.id ??
-      profile?.familyBranch?.branchId ??
-      profile?.familyBranch?.familyBranchId ??
-      profile?.civilFamily?.familyBranchId;
+  // const extractFamilyBranchId = (profile: any) => {
+  //   const raw =
+  //     profile?.familyBranchId ??
+  //     profile?.familyBranchID ??
+  //     profile?.familyBranch_id ??
+  //     profile?.familyBranch?.id ??
+  //     profile?.familyBranch?.branchId ??
+  //     profile?.familyBranch?.familyBranchId ??
+  //     profile?.civilFamily?.familyBranchId;
 
-    const n = Number(raw);
-    return Number.isFinite(n) && n > 0 ? String(n) : "";
-  };
+  //   const n = Number(raw);
+  //   return Number.isFinite(n) && n > 0 ? String(n) : "";
+  // };
 
-  const extractDisplayName = (obj: any) => {
-    if (!obj) return "";
+  // const extractDisplayName = (obj: any) => {
+  //   if (!obj) return "";
 
-    const direct = String(
-      obj?.parentName ??
-        obj?.spouseName ??
-        obj?.fullName ??
-        obj?.name ??
-        obj?.displayName ??
-        obj?.userName ??
-        obj?.parentFullName ??
-        obj?.spouseFullName ??
-        "",
-    ).trim();
-    if (direct) return direct;
+  //   const direct = String(
+  //     obj?.parentName ??
+  //       obj?.spouseName ??
+  //       obj?.fullName ??
+  //       obj?.name ??
+  //       obj?.displayName ??
+  //       obj?.userName ??
+  //       obj?.parentFullName ??
+  //       obj?.spouseFullName ??
+  //       "",
+  //   ).trim();
+  //   if (direct) return direct;
 
-    const first = String(obj?.firstName ?? obj?.parentFirstName ?? obj?.spouseFirstName ?? "").trim();
-    const family = String(obj?.familyName ?? obj?.parentFamilyName ?? obj?.spouseFamilyName ?? "").trim();
-    const combined = `${first} ${family}`.trim();
-    if (combined) return combined;
+  //   const first = String(obj?.firstName ?? obj?.parentFirstName ?? obj?.spouseFirstName ?? "").trim();
+  //   const family = String(obj?.familyName ?? obj?.parentFamilyName ?? obj?.spouseFamilyName ?? "").trim();
+  //   const combined = `${first} ${family}`.trim();
+  //   if (combined) return combined;
 
-    const nestedProfile = obj?.userProfile ?? obj?.profile ?? obj?.parentProfile ?? obj?.spouseProfile;
-    if (nestedProfile) {
-      const nf = String(nestedProfile?.firstName ?? "").trim();
-      const nl = String(nestedProfile?.familyName ?? nestedProfile?.lastName ?? "").trim();
-      const nested = `${nf} ${nl}`.trim();
-      if (nested) return nested;
-    }
+  //   const nestedProfile = obj?.userProfile ?? obj?.profile ?? obj?.parentProfile ?? obj?.spouseProfile;
+  //   if (nestedProfile) {
+  //     const nf = String(nestedProfile?.firstName ?? "").trim();
+  //     const nl = String(nestedProfile?.familyName ?? nestedProfile?.lastName ?? "").trim();
+  //     const nested = `${nf} ${nl}`.trim();
+  //     if (nested) return nested;
+  //   }
 
-    return "";
-  };
+  //   return "";
+  // };
 
   useEffect(() => {
     // If we didn't get a numeric id from the profile, try resolving by name once the branches list is available.

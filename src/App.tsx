@@ -29,8 +29,9 @@ import ConfigurationPaymentTypes from "./pages/Management/ConfigurationPaymentTy
 import ConfigurationRamadan from "./pages/Management/ConfigurationRamadan";
 import ToastRenderer from "./components/common/ToastRenderer";
 import ConfigurationFamilyBranches from "./pages/Management/ConfigurationFamilyBranches";
-import CreateUser from "./pages/Management/createUser";
+
 import AboutUs from "./pages/AboutUs";
+import CreateUser from "./pages/Management/CreateUser";
 
 export default function App() {
   return (

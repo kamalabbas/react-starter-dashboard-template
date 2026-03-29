@@ -1,4 +1,5 @@
-import { BaseResponse } from "@/interfaces/baseResponse.interface";
+
+import { BaseResponse } from "@/interface/baseResponse.interface";
 import { postData } from "@/services/api";
 import { useToastStore } from "@/stores/toastStore";
 import { useMutation } from "@tanstack/react-query";
