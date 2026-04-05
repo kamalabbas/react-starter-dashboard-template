@@ -33,6 +33,7 @@ import ConfigurationFamilyBranches from "./pages/Management/ConfigurationFamilyB
 
 import AboutUs from "./pages/AboutUs";
 import PrivacyPolicy from "./pages/PrivacyPolicy";
+import BiographyManagement from "./pages/BiographyManagement";
 import HistoryArticles from "./pages/HistoryArticles";
 import HistoryArticleEditor from "./pages/HistoryArticleEditor";
 import CreateUser from "./pages/Management/CreateUser";
@@ -73,6 +74,7 @@ export default function App() {
             <Route path="/configuration/family-branches" element={<ConfigurationFamilyBranches />} />
             <Route path="/about-us" element={<AboutUs />} />
             <Route path="/privacy-policy" element={<PrivacyPolicy />} />
+            <Route path="/biography-management" element={<BiographyManagement />} />
             <Route path="/history-articles" element={<HistoryArticles />} />
             <Route path="/history-articles/:id" element={<HistoryArticleEditor />} />
 
