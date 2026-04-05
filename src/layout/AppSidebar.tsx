@@ -67,6 +67,10 @@ const navItems: NavItem[] = [
         path: "/about-us",
       },
       {
+        name: "Privacy Policy",
+        path: "/privacy-policy",
+      },
+      {
         name: "History Articles",
         path: "/history-articles",
       },

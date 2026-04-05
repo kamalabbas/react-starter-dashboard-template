@@ -20,7 +20,7 @@ export default function HistoryArticles() {
             onClick={() => navigate("/history-articles/new")}
             className="px-4 py-2 rounded bg-blue-600 text-white hover:bg-blue-700"
           >
-            Create Article
+            Create History Article
           </button>
         </div>
 
@@ -52,13 +52,13 @@ export default function HistoryArticles() {
                 className="w-full text-left rounded-lg border border-gray-200 dark:border-gray-700 p-4 hover:border-blue-400 dark:hover:border-blue-500 transition flex gap-4"
                 onClick={() => navigate(`/history-articles/${article.pageId}`)}
               >
-                {article.thumbnailUrl && (
+                {/* {article.thumbnailUrl && (
                   <img
                     src={article.thumbnailUrl}
                     alt={article.title}
                     className="w-20 h-20 object-cover rounded flex-shrink-0"
                   />
-                )}
+                )} */}
                 <div className="flex-1">
                   <div className="flex items-center justify-between gap-3">
                     <h3 className="font-semibold text-gray-900 dark:text-white line-clamp-1">{article.title}</h3>

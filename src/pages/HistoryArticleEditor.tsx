@@ -161,7 +161,7 @@ export default function HistoryArticleEditor() {
       <div className="rounded-xl border border-gray-200 bg-white dark:border-gray-800 dark:bg-slate-900 p-6">
         <div className="flex items-center justify-between mb-4">
           <h1 className="text-xl font-semibold text-gray-800 dark:text-white">
-            {isCreateMode ? "Create Article" : "Update Article"}
+            {isCreateMode ? "Create History Page" : "Update History Page"}
           </h1>
 
           <div className="flex gap-2">
@@ -216,7 +216,7 @@ export default function HistoryArticleEditor() {
             </select>
           </div>
 
-          <div>
+          {/* <div>
             <label className="block text-sm font-medium text-gray-700 dark:text-gray-200 mb-1">Thumbnail</label>
             <input
               type="file"
@@ -224,10 +224,10 @@ export default function HistoryArticleEditor() {
               onChange={handleThumbnailChange}
               className="w-full rounded border border-gray-300 dark:border-gray-700 bg-white dark:bg-slate-800 px-3 py-2 text-gray-900 dark:text-gray-100"
             />
-          </div>
+          </div> */}
         </div>
 
-        {thumbnailPreview && (
+        {/* {thumbnailPreview && (
           <div className="mb-4">
             <p className="text-sm font-medium text-gray-700 dark:text-gray-200 mb-2">Thumbnail Preview</p>
             <img
@@ -236,7 +236,7 @@ export default function HistoryArticleEditor() {
               className="w-32 h-32 object-cover rounded border border-gray-300 dark:border-gray-700"
             />
           </div>
-        )}
+        )} */}
 
         <CKEditor
           editor={ClassicEditor}
