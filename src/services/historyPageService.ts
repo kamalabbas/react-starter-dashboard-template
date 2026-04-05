@@ -1,4 +1,5 @@
 import { getData, postData } from "./api";
+import { BaseResponse } from "@/interface/baseResponse.interface";
 import { GetHistoryPagesResponse, HistoryPage } from "@/interface/historyPage.interface";
 
 export interface UpdateHistoryPagePayload {
@@ -7,6 +8,12 @@ export interface UpdateHistoryPagePayload {
   thumbnail?: File;
   contentHtml: string;
   statusCode: "DRAFT" | "PUBLISHED";
+}
+
+export interface UploadHistoryMediaPayload {
+  pageId: number;
+  statusCode: "DRAFT" | "PUBLISHED";
+  file: File;
 }
 
 export const getHistoryPages = async (): Promise<GetHistoryPagesResponse> => {
@@ -26,4 +33,13 @@ export const updateHistoryPage = async (payload: UpdateHistoryPagePayload): Prom
 
   const response = await postData<FormData, HistoryPage>("/Admin/Pages/UpdateHistory", formData);
   return response;
+};
+
+export const uploadHistoryMediaFile = async (payload: UploadHistoryMediaPayload): Promise<BaseResponse<{ url: string }>> => {
+  const formData = new FormData();
+  formData.append("pageId", String(payload.pageId));
+  formData.append("statusCode", payload.statusCode);
+  formData.append("file", payload.file);
+
+  return postData<FormData, BaseResponse<{ url: string }>>("/Admin/Pages/UploadHistoryMediaFile", formData);
 };

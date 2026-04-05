@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { useNavigate, useParams } from "react-router";
 import { CKEditor } from "@ckeditor/ckeditor5-react";
 import { ImageResize, ImageStyle, ImageBlock, ImageInline } from "ckeditor5";
@@ -33,6 +33,7 @@ import "ckeditor5/ckeditor5.css";
 import { useToastStore } from "@/stores/toastStore";
 import { useUpdateHistoryPage } from "@/hooks/useUpdateHistoryPage";
 import { useGetHistoryPages } from "@/hooks/useGetHistoryPages";
+import { uploadHistoryMediaFile } from "@/services/historyPageService";
 
 type Loader = {
   file: Promise<File | null>;
@@ -77,9 +78,9 @@ export default function HistoryArticleEditor() {
   const [showHtml, setShowHtml] = useState(false);
   const [title, setTitle] = useState("");
   const [contentHtml, setContentHtml] = useState("");
-  const [thumbnail, setThumbnail] = useState<File | null>(null);
-  const [thumbnailPreview, setThumbnailPreview] = useState<string>("");
+  const [isUploadingPdf, setIsUploadingPdf] = useState(false);
   const [statusCode, setStatusCode] = useState<"DRAFT" | "PUBLISHED">("DRAFT");
+  const pdfInputRef = useRef<HTMLInputElement | null>(null);
 
   const currentArticle = useMemo(() => {
     if (isCreateMode) return null;
@@ -90,8 +91,6 @@ export default function HistoryArticleEditor() {
     if (isCreateMode) {
       setTitle("");
       setContentHtml("");
-      setThumbnail(null);
-      setThumbnailPreview("");
       setStatusCode("DRAFT");
       return;
     }
@@ -99,23 +98,9 @@ export default function HistoryArticleEditor() {
     if (currentArticle) {
       setTitle(currentArticle.title);
       setContentHtml(currentArticle.contentHtml);
-      setThumbnailPreview(currentArticle.thumbnailUrl);
       setStatusCode(currentArticle.statusCode);
-      setThumbnail(null);
     }
   }, [currentArticle, isCreateMode]);
-
-  const handleThumbnailChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0];
-    if (file) {
-      setThumbnail(file);
-      const reader = new FileReader();
-      reader.onloadend = () => {
-        setThumbnailPreview(reader.result as string);
-      };
-      reader.readAsDataURL(file);
-    }
-  };
 
   const saveArticle = async () => {
     const safeTitle = title.trim();
@@ -129,13 +114,45 @@ export default function HistoryArticleEditor() {
         pageId: isCreateMode ? -1 : pageId,
         title: safeTitle,
         contentHtml,
-        thumbnail: thumbnail || undefined,
         statusCode,
       });
 
       navigate("/history-articles");
     } catch (error) {
       console.error("Error saving article:", error);
+    }
+  };
+
+  const uploadPdf = async (file: File) => {
+    if (isCreateMode || !pageId) {
+      showToast("Create the history page first, then upload PDF", "error");
+      return;
+    }
+
+    try {
+      setIsUploadingPdf(true);
+      const response = await uploadHistoryMediaFile({
+        pageId,
+        statusCode,
+        file,
+      });
+
+      const url = response.data?.url;
+      if (!url) {
+        throw new Error("Upload did not return a file URL");
+      }
+
+      const safeName = file.name.replace(/"/g, "&quot;");
+      setContentHtml((prev) => `${prev}<p><a href="${url}" target="_blank" rel="noopener noreferrer">${safeName}</a></p>`);
+      showToast("PDF uploaded and inserted into content", "success");
+    } catch (error) {
+      const message = error instanceof Error ? error.message : "Failed to upload PDF";
+      showToast(message, "error");
+    } finally {
+      setIsUploadingPdf(false);
+      if (pdfInputRef.current) {
+        pdfInputRef.current.value = "";
+      }
     }
   };
 
@@ -165,12 +182,32 @@ export default function HistoryArticleEditor() {
           </h1>
 
           <div className="flex gap-2">
+            <input
+              ref={pdfInputRef}
+              type="file"
+              accept="application/pdf"
+              className="hidden"
+              onChange={(e) => {
+                const file = e.target.files?.[0];
+                if (!file) return;
+                uploadPdf(file);
+              }}
+            />
+
             <button
               onClick={() => setShowHtml((v) => !v)}
               className="px-4 py-2 rounded bg-gray-600 text-white hover:bg-gray-700 disabled:opacity-50"
               disabled={isLoading}
             >
               {showHtml ? "Hide HTML" : "View HTML"}
+            </button>
+
+            <button
+              onClick={() => pdfInputRef.current?.click()}
+              disabled={isLoading || isUploadingPdf}
+              className="px-4 py-2 rounded bg-indigo-600 text-white hover:bg-indigo-700 disabled:opacity-50"
+            >
+              {isUploadingPdf ? "Uploading PDF..." : "Upload PDF"}
             </button>
 
             <button

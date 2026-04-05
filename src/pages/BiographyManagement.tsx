@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { CKEditor } from "@ckeditor/ckeditor5-react";
 import { ImageResize, ImageStyle, ImageBlock, ImageInline } from "ckeditor5";
 import {
@@ -70,6 +70,7 @@ export default function BiographyManagement() {
   const [showHtml, setShowHtml] = useState(false);
   const [rejectReason, setRejectReason] = useState("");
   const [isRejectModalOpen, setIsRejectModalOpen] = useState(false);
+  const pdfInputRef = useRef<HTMLInputElement | null>(null);
 
   const { data: users = [] } = useUsersList();
   const { data: pendingBiographies = [], isLoading: isPendingLoading } = usePendingBiographies();
@@ -212,6 +213,37 @@ export default function BiographyManagement() {
     } catch (error) {
       const message = error instanceof Error ? error.message : "Failed to reject biography";
       showToast(message, "error");
+    }
+  };
+
+  const uploadBiographyPdf = async (file: File) => {
+    if (!selectedUserId) {
+      showToast("Select a user first", "error");
+      return;
+    }
+
+    try {
+      const response = await uploadMutation.mutateAsync({
+        userId: selectedUserId,
+        statusCode: uploadStatus,
+        image: file,
+      });
+
+      const url = response.data?.url;
+      if (!url) {
+        throw new Error("Upload did not return a file URL");
+      }
+
+      const safeName = file.name.replace(/"/g, "&quot;");
+      setEditorHtml((prev) => `${prev}<p><a href="${url}" target="_blank" rel="noopener noreferrer">${safeName}</a></p>`);
+      showToast("PDF uploaded and inserted into content", "success");
+    } catch (error) {
+      const message = error instanceof Error ? error.message : "Failed to upload PDF";
+      showToast(message, "error");
+    } finally {
+      if (pdfInputRef.current) {
+        pdfInputRef.current.value = "";
+      }
     }
   };
 
@@ -370,8 +402,24 @@ export default function BiographyManagement() {
               )}
 
               <div className="mb-4 flex flex-wrap items-center gap-2">
+                <input
+                  ref={pdfInputRef}
+                  type="file"
+                  accept="application/pdf"
+                  className="hidden"
+                  onChange={(e) => {
+                    const file = e.target.files?.[0];
+                    if (!file) return;
+                    uploadBiographyPdf(file);
+                  }}
+                />
+
                 <Button size="sm" variant="outline" onClick={() => setShowHtml((v) => !v)} disabled={isBusy}>
                   {showHtml ? "Hide HTML" : "View HTML"}
+                </Button>
+
+                <Button size="sm" variant="outline" onClick={() => pdfInputRef.current?.click()} disabled={!canUpload || isBusy}>
+                  Upload PDF
                 </Button>
 
                 <Button size="sm" onClick={savePending} disabled={!canSavePending || isBusy}>
@@ -400,7 +448,7 @@ export default function BiographyManagement() {
                 </Button>
 
                 <span className="ml-1 text-xs text-gray-500 dark:text-gray-400">
-                  Upload image: {canUpload ? "Enabled" : "Disabled"}
+                  Upload image/PDF: {canUpload ? "Enabled" : "Disabled"}
                 </span>
               </div>
 

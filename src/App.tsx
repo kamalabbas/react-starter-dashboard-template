@@ -22,6 +22,7 @@ import ManageZakat from "@/pages/Management/ManageZakat";
 import ManageSadaqah from "./pages/Management/ManageSadaqah";
 import ManageAid from "./pages/Management/ManageAid";
 import CardRequests from "./pages/Management/CardRequests";
+import BalanceDistribution from "./pages/Management/BalanceDistribution";
 import ManageSponsership from "./pages/Management/ManageSponsership";
 import CreateAnnouncements from "./pages/Management/CreateAnnouncements";
 import ManageUserEdit from "./pages/Management/ManageUserEdit";
@@ -64,6 +65,7 @@ export default function App() {
             <Route path="/manage-sadaqah" element={<ManageSadaqah />} />
             <Route path="/manage-aid" element={<ManageAid />} />
             <Route path="/card-requests" element={<CardRequests />} />
+            <Route path="/balance-distribution" element={<BalanceDistribution />} />
             <Route path="/manage-sponsership" element={<ManageSponsership />} />
             <Route path="/create-announcements" element={<CreateAnnouncements />} />
             <Route path="/configuration" element={<Configuration />} />
