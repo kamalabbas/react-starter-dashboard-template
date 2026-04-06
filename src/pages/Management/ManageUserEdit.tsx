@@ -938,8 +938,6 @@ const ManageUserEdit: React.FC = () => {
     }
   };
 
-  if (isLoading) return <div className="p-6">Loading...</div>;
-
   const selectedUserId = Number(id) || 0;
   const currentUser: User | undefined = users.find((x: any) => String(x.id) === String(id));
   const managedByInfo = currentUser?.managedBy as any;
@@ -959,6 +957,33 @@ const ManageUserEdit: React.FC = () => {
   const activityTotalPages = activityData?.totalPages ?? 1;
   const activityHasPrev = activityPageNumber > 1;
   const activityHasNext = activityPageNumber < activityTotalPages;
+
+  const humanizeCode = (value: unknown) => {
+    const text = String(value ?? "").trim();
+    if (!text) return "-";
+    return text
+      .toLowerCase()
+      .replace(/_/g, " ")
+      .replace(/\b\w/g, (char) => char.toUpperCase());
+  };
+
+  const formatActivityDate = (value: unknown) => {
+    const raw = String(value ?? "").trim();
+    if (!raw) return "-";
+
+    const parsed = new Date(raw);
+    if (Number.isNaN(parsed.getTime())) return raw;
+
+    return parsed.toLocaleString(undefined, {
+      year: "numeric",
+      month: "short",
+      day: "numeric",
+      hour: "2-digit",
+      minute: "2-digit",
+    });
+  };
+
+  if (isLoading) return <div className="p-6">Loading...</div>;
 
   return (
     <div className="p-6 max-w-5xl mx-auto bg-white dark:bg-slate-900 rounded shadow">
@@ -1958,30 +1983,30 @@ const ManageUserEdit: React.FC = () => {
             </div>
 
             {isActivityLoading || isActivityFetching ? (
-              <div className="text-sm text-gray-600 dark:text-gray-300">Loading activity...</div>
+              <div className="text-sm text-gray-600 dark:text-gray-300">Loading user activity...</div>
             ) : activityError ? (
-              <div className="text-sm text-error-500">Failed to load activity data.</div>
+              <div className="text-sm text-error-500">We could not load activity right now. Please try again.</div>
             ) : activityList.length === 0 ? (
-              <div className="text-sm text-gray-600 dark:text-gray-300">No activity records found.</div>
+              <div className="text-sm text-gray-600 dark:text-gray-300">No activity yet for this user.</div>
             ) : (
               <div className="overflow-x-auto">
                 <table className="min-w-full text-sm">
                   <thead>
                     <tr className="border-b border-gray-200 dark:border-gray-700">
-                      <th className="py-2 pr-3 text-left font-semibold text-gray-700 dark:text-gray-200">Date</th>
+                      <th className="py-2 pr-3 text-left font-semibold text-gray-700 dark:text-gray-200">When</th>
                       <th className="py-2 pr-3 text-left font-semibold text-gray-700 dark:text-gray-200">Action</th>
-                      <th className="py-2 pr-3 text-left font-semibold text-gray-700 dark:text-gray-200">Entity</th>
-                      <th className="py-2 pr-3 text-left font-semibold text-gray-700 dark:text-gray-200">Description</th>
+                      <th className="py-2 pr-3 text-left font-semibold text-gray-700 dark:text-gray-200">Type</th>
+                      <th className="py-2 pr-3 text-left font-semibold text-gray-700 dark:text-gray-200">Details</th>
                     </tr>
                   </thead>
                   <tbody>
                     {activityList.map((activity: any, index: number) => {
                       const rowKey = String(activity?.id ?? activity?.activityId ?? `${activity?.createdAt ?? ""}-${index}`);
-                      const action = String(activity?.actionDescription ?? activity?.actionCode ?? "-");
-                      const entity = String(activity?.entityTypeDescription ?? activity?.entityTypeCode ?? "-");
-                      const description = String(activity?.description ?? activity?.message ?? activity?.details ?? "-");
-                      const dateValue = String(activity?.createdAt ?? activity?.activityDate ?? activity?.createdDate ?? "");
-                      const dateLabel = dateValue ? new Date(dateValue).toLocaleString() : "-";
+                      const action = activity?.actionDescription ?? humanizeCode(activity?.actionCode);
+                      const entity = activity?.entityTypeDescription ?? humanizeCode(activity?.entityTypeCode);
+                      const description = String(activity?.summary ?? activity?.description ?? activity?.message ?? activity?.details ?? "-");
+                      const dateValue = activity?.createdAt ?? activity?.activityDate ?? activity?.createdDate;
+                      const dateLabel = formatActivityDate(dateValue);
 
                       return (
                         <tr key={rowKey} className="border-b border-gray-100 dark:border-gray-800">

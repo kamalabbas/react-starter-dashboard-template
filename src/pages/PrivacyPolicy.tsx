@@ -98,18 +98,6 @@ export default function PrivacyPolicy() {
     );
   };
 
-  const undoDraftChanges = () => {
-    undoPrivacyPolicyDraft.mutate(undefined, {
-      onSuccess: () => {
-        setInitialized(false);
-        showToast("Draft changes reverted to last published version", "success");
-      },
-      onError: (error) => {
-        showToast(error.message || "Failed to undo draft changes", "error");
-      },
-    });
-  };
-
   class PrivacyPolicyUploadAdapter {
     loader: Loader;
 

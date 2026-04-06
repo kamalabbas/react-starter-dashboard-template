@@ -13,6 +13,10 @@ import { LookupDomain } from "@/interface/enums";
 import useGetAllPermissions from "@/hooks/useGetAllPermissions";
 import useGetUserPermissions from "@/hooks/useGetUserPermissions";
 import useUpdateUserAccess from "@/hooks/useUpdateUserAccess";
+import useDeactivateUser from "@/hooks/useDeactivateUser";
+import { Dropdown } from "@/components/ui/dropdown/Dropdown";
+import { DropdownItem } from "@/components/ui/dropdown/DropdownItem";
+import { MoreDotIcon } from "@/icons";
 
 const ManageUsers: React.FC = () => {
   const { data: users = [], isLoading, isError } = useUsersList();
@@ -24,11 +28,14 @@ const ManageUsers: React.FC = () => {
   const [newEmail, setNewEmail] = useState("");
   const [selectedRoleCode, setSelectedRoleCode] = useState("");
   const [selectedPermissionCodes, setSelectedPermissionCodes] = useState<string[]>([]);
+  const [openActionsForUserId, setOpenActionsForUserId] = useState<number | null>(null);
+  const [deactivateTargetUser, setDeactivateTargetUser] = useState<User | null>(null);
 
   const showToast = useToastStore((s) => s.showToast);
 
   const changeEmailMutation = useChangeEmailByAdmin();
   const updateUserAccessMutation = useUpdateUserAccess();
+  const deactivateUserMutation = useDeactivateUser();
   const { getDomain } = useLookup([LookupDomain.USER_ROLE]);
   const { data: allPermissions = [], isLoading: isLoadingPermissions } = useGetAllPermissions();
   const { data: currentUserPermissionCodes = [] } = useGetUserPermissions();
@@ -169,32 +176,61 @@ const ManageUsers: React.FC = () => {
       className: "text-right",
       align: "right",
       render: (u) => (
-        <>
-          <div className="flex gap-2">
-            <Link
+        <div className="relative inline-flex justify-end">
+          <button
+            type="button"
+            className="dropdown-toggle inline-flex h-8 w-8 items-center justify-center rounded-lg border border-gray-200 bg-white text-gray-600 hover:bg-gray-50 hover:text-gray-900 dark:border-gray-700 dark:bg-gray-900 dark:text-gray-300 dark:hover:bg-gray-800"
+            onClick={() => setOpenActionsForUserId((prev) => (prev === u.id ? null : u.id))}
+            aria-label="Open user actions"
+          >
+            <MoreDotIcon className="h-5 w-5" />
+          </button>
+
+          <Dropdown
+            isOpen={openActionsForUserId === u.id}
+            onClose={() => setOpenActionsForUserId(null)}
+            className="w-44 py-1"
+          >
+            <DropdownItem
+              tag="a"
               to={`/manage-users/${u.id}/edit`}
-              className="px-3 py-1 rounded bg-blue-600 hover:bg-blue-700 text-white text-xs font-semibold transition shadow flex items-center"
+              onItemClick={() => setOpenActionsForUserId(null)}
             >
               Edit
-            </Link>
+            </DropdownItem>
 
-            <button
-              onClick={() => openEmailModal(u)}
-              className="px-3 py-1 rounded bg-amber-500 hover:bg-amber-600 text-white text-xs font-semibold transition shadow flex shrink-0"
+            <DropdownItem
+              onClick={() => {
+                setOpenActionsForUserId(null);
+                openEmailModal(u);
+              }}
             >
               Change Email
-            </button>
+            </DropdownItem>
 
-            <button
-              onClick={() => openRoleModal(u)}
-              className="px-3 py-1 rounded bg-violet-600 hover:bg-violet-700 disabled:bg-gray-400 disabled:cursor-not-allowed text-white text-xs font-semibold transition shadow flex shrink-0"
-              disabled={!canManageAccess || u.userRoleCode === "SUPER_ADMIN"}
-              title={u.userRoleCode === "SUPER_ADMIN" ? "Super Admin cannot be edited" : (!canManageAccess ? "You do not have access-management permission" : undefined)}
+            <DropdownItem
+              onClick={() => {
+                if (!canManageAccess || u.userRoleCode === "SUPER_ADMIN") return;
+                setOpenActionsForUserId(null);
+                openRoleModal(u);
+              }}
+              className={!canManageAccess || u.userRoleCode === "SUPER_ADMIN" ? "opacity-50 cursor-not-allowed" : ""}
             >
               Change Role
-            </button>
-          </div>
-        </>
+            </DropdownItem>
+
+            <DropdownItem
+              onClick={() => {
+                if (deactivateUserMutation.isPending || u.userRoleCode === "SUPER_ADMIN") return;
+                setOpenActionsForUserId(null);
+                setDeactivateTargetUser(u);
+              }}
+              className={deactivateUserMutation.isPending || u.userRoleCode === "SUPER_ADMIN" ? "opacity-50 cursor-not-allowed text-red-300" : "text-red-600 hover:text-red-700"}
+            >
+              {deactivateUserMutation.isPending ? "Deleting..." : "Delete User"}
+            </DropdownItem>
+          </Dropdown>
+        </div>
       ),
     },
   ];
@@ -219,6 +255,18 @@ const ManageUsers: React.FC = () => {
       }
       return [...prev, permissionCode];
     });
+  };
+
+  const handleDeactivateUser = async () => {
+    if (!deactivateTargetUser) return;
+    try {
+      await deactivateUserMutation.mutateAsync({ userId: deactivateTargetUser.id });
+      showToast("User deactivated successfully", "success");
+      setDeactivateTargetUser(null);
+      setOpenActionsForUserId(null);
+    } catch (error: any) {
+      showToast(error?.message ?? "Failed to deactivate user", "error");
+    }
   };
 
   return (
@@ -289,6 +337,31 @@ const ManageUsers: React.FC = () => {
               disabled={changeEmailMutation.isPending}
             >
               {changeEmailMutation.isPending ? "Saving..." : "Save"}
+            </Button>
+          </div>
+        </div>
+      </Modal>
+
+      <Modal isOpen={Boolean(deactivateTargetUser)} onClose={() => setDeactivateTargetUser(null)} className="max-w-md">
+        <div className="p-6 pt-12 sm:pt-14">
+          <h3 className="text-lg font-semibold text-gray-900 dark:text-white">Confirm deactivation</h3>
+          <p className="mt-2 text-sm text-gray-600 dark:text-gray-300">
+            {deactivateTargetUser
+              ? `Are you sure you want to deactivate ${deactivateTargetUser.email}?`
+              : ""}
+          </p>
+
+          <div className="mt-6 flex justify-end gap-3">
+            <Button
+              size="sm"
+              variant="outline"
+              onClick={() => setDeactivateTargetUser(null)}
+              disabled={deactivateUserMutation.isPending}
+            >
+              Cancel
+            </Button>
+            <Button size="sm" onClick={handleDeactivateUser} disabled={deactivateUserMutation.isPending}>
+              {deactivateUserMutation.isPending ? "Deleting..." : "Confirm"}
             </Button>
           </div>
         </div>

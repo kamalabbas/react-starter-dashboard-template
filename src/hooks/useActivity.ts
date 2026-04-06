@@ -49,12 +49,33 @@ const normalize = (
   fallbackPageNumber: number,
   fallbackPageSize: number
 ): ActivityQueryResult => {
-  const data = response?.data;
-  const list = (data?.activityList ?? data?.activities ?? data?.items ?? []) as ActivityItem[];
-  const totalCount = Number(data?.totalCount ?? list.length) || 0;
-  const pageSize = Number(data?.pageSize ?? fallbackPageSize) || fallbackPageSize;
-  const pageNumber = Number(data?.pageNumber ?? fallbackPageNumber) || fallbackPageNumber;
-  const totalPages = Number(data?.totalPages ?? (pageSize > 0 ? Math.ceil(totalCount / pageSize) : 1)) || 1;
+  const data = response?.data as unknown as {
+    activityList?: ActivityItem[];
+    activities?: GetUserActivitiesResponse | ActivityItem[];
+    items?: ActivityItem[];
+    pageNumber?: number;
+    pageSize?: number;
+    totalCount?: number;
+    totalPages?: number;
+  } | undefined;
+
+  // Backend can return either flat data or nested object under "activities".
+  const activityContainer =
+    data && data.activities && !Array.isArray(data.activities)
+      ? data.activities
+      : data;
+
+  const list = (
+    activityContainer?.activityList ??
+    activityContainer?.activities ??
+    activityContainer?.items ??
+    []
+  ) as ActivityItem[];
+
+  const totalCount = Number(activityContainer?.totalCount ?? list.length) || 0;
+  const pageSize = Number(activityContainer?.pageSize ?? fallbackPageSize) || fallbackPageSize;
+  const pageNumber = Number(activityContainer?.pageNumber ?? fallbackPageNumber) || fallbackPageNumber;
+  const totalPages = Number(activityContainer?.totalPages ?? (pageSize > 0 ? Math.ceil(totalCount / pageSize) : 1)) || 1;
 
   return {
     activityList: Array.isArray(list) ? list : [],

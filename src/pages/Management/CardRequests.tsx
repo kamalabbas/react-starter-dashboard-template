@@ -6,7 +6,7 @@ import { Modal } from "@/components/ui/modal";
 import useAcceptCardRequest from "@/hooks/useAcceptCardRequest";
 import useGetPendingCardRequests from "@/hooks/useGetPendingCardRequests";
 import useRejectCardRequest from "@/hooks/useRejectCardRequest";
-import { CardRequest, CardRequestStatusCode } from "@/interface/card.interface";
+import { CardRequest } from "@/interface/card.interface";
 import { useAuthStore } from "@/stores/authStore";
 import { useToastStore } from "@/stores/toastStore";
 
