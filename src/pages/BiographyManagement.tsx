@@ -43,6 +43,8 @@ type Loader = {
   file: Promise<File | null>;
 };
 
+type ViewMode = "pending-review" | "all-users";
+
 const formatDate = (value: string | null) => {
   if (!value) return "-";
   const d = new Date(value);
@@ -64,6 +66,7 @@ const getEditorSource = (approvedBiography: BiographyPage | null, workingBiograp
 export default function BiographyManagement() {
   const showToast = useToastStore((s) => s.showToast);
 
+  const [viewMode, setViewMode] = useState<ViewMode>("pending-review");
   const [search, setSearch] = useState("");
   const [selectedUserId, setSelectedUserId] = useState<number | null>(null);
   const [editorHtml, setEditorHtml] = useState("");
@@ -119,11 +122,37 @@ export default function BiographyManagement() {
     });
   }, [filteredUsers, pendingByUserId]);
 
+  const pendingUserRows = useMemo(() => userRows.filter((user) => Boolean(user.pending)), [userRows]);
+
+  const visibleUserRows = useMemo(() => {
+    if (viewMode === "pending-review") return pendingUserRows;
+    return userRows;
+  }, [pendingUserRows, userRows, viewMode]);
+
+  const selectedPendingIndex = useMemo(() => {
+    if (!selectedUserId) return -1;
+    return pendingUserRows.findIndex((user) => user.id === selectedUserId);
+  }, [pendingUserRows, selectedUserId]);
+
+  const isSelectedUserPending = selectedPendingIndex >= 0;
+
   useEffect(() => {
-    if (!selectedUserId && userRows.length > 0) {
-      setSelectedUserId(userRows[0].id);
+    if (pendingUserRows.length === 0 && viewMode === "pending-review") {
+      setViewMode("all-users");
     }
-  }, [selectedUserId, userRows]);
+  }, [pendingUserRows.length, viewMode]);
+
+  useEffect(() => {
+    if (visibleUserRows.length === 0) {
+      setSelectedUserId(null);
+      return;
+    }
+
+    const stillVisible = selectedUserId !== null && visibleUserRows.some((user) => user.id === selectedUserId);
+    if (!stillVisible) {
+      setSelectedUserId(visibleUserRows[0].id);
+    }
+  }, [selectedUserId, visibleUserRows]);
 
   useEffect(() => {
     if (!selectedUserId) {
@@ -135,10 +164,9 @@ export default function BiographyManagement() {
   }, [selectedUserId, approvedBiography, workingBiography]);
 
   const activeStatus = (workingBiography?.statusCode ?? approvedBiography?.statusCode ?? null) as BiographyStatus | null;
-  const canSavePending = workingBiography?.statusCode === "PENDING_APPROVAL";
   const canApprove = workingBiography?.statusCode === "PENDING_APPROVAL";
   const canReject = workingBiography?.statusCode === "PENDING_APPROVAL";
-  const canPublishDirectly = selectedUserId !== null;
+  const canUpdateBiography = selectedUserId !== null;
   const canUpload = selectedUserId !== null;
 
   const uploadStatus = workingBiography?.statusCode === "PENDING_APPROVAL" ? "PENDING_APPROVAL" : "APPROVED";
@@ -150,7 +178,20 @@ export default function BiographyManagement() {
     uploadMutation.isPending ||
     isWorkspaceLoading;
 
-  const publishDirectly = async () => {
+  const selectNextPending = () => {
+    if (pendingUserRows.length === 0) return;
+
+    if (!selectedUserId) {
+      setSelectedUserId(pendingUserRows[0].id);
+      return;
+    }
+
+    const currentIndex = pendingUserRows.findIndex((user) => user.id === selectedUserId);
+    const nextIndex = currentIndex >= 0 ? (currentIndex + 1) % pendingUserRows.length : 0;
+    setSelectedUserId(pendingUserRows[nextIndex].id);
+  };
+
+  const updateBiography = async () => {
     if (!selectedUserId) return;
 
     try {
@@ -159,25 +200,9 @@ export default function BiographyManagement() {
         contentHtml: editorHtml,
         statusCode: "APPROVED",
       });
-      showToast("Biography published directly", "success");
+      showToast("Biography updated", "success");
     } catch (error) {
-      const message = error instanceof Error ? error.message : "Failed to publish biography";
-      showToast(message, "error");
-    }
-  };
-
-  const savePending = async () => {
-    if (!selectedUserId) return;
-
-    try {
-      await updateMutation.mutateAsync({
-        userId: selectedUserId,
-        contentHtml: editorHtml,
-        statusCode: "PENDING_APPROVAL",
-      });
-      showToast("Pending biography changes saved", "success");
-    } catch (error) {
-      const message = error instanceof Error ? error.message : "Failed to save pending biography";
+      const message = error instanceof Error ? error.message : "Failed to update biography";
       showToast(message, "error");
     }
   };
@@ -279,28 +304,94 @@ export default function BiographyManagement() {
   return (
     <div className="p-6">
       <div className="mb-4 flex items-center justify-between">
-        <h1 className="text-xl font-semibold text-gray-800 dark:text-white">Biography Management</h1>
-        <div className="text-xs text-gray-500 dark:text-gray-400">User-specific workspace editor</div>
+        <div>
+          <h1 className="text-xl font-semibold text-gray-800 dark:text-white">Biography Management</h1>
+          <div className="mt-2 inline-flex rounded-lg border border-gray-200 bg-white p-1 dark:border-gray-700 dark:bg-slate-800">
+            <button
+              type="button"
+              onClick={() => setViewMode("pending-review")}
+              className={`rounded-md px-3 py-1.5 text-xs font-medium transition ${
+                viewMode === "pending-review"
+                  ? "bg-amber-100 text-amber-700 dark:bg-amber-900/30 dark:text-amber-300"
+                  : "text-gray-600 hover:bg-gray-100 dark:text-gray-300 dark:hover:bg-slate-700"
+              }`}
+              disabled={pendingUserRows.length === 0}
+            >
+              Review Pending ({pendingUserRows.length})
+            </button>
+            <button
+              type="button"
+              onClick={() => setViewMode("all-users")}
+              className={`rounded-md px-3 py-1.5 text-xs font-medium transition ${
+                viewMode === "all-users"
+                  ? "bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-300"
+                  : "text-gray-600 hover:bg-gray-100 dark:text-gray-300 dark:hover:bg-slate-700"
+              }`}
+            >
+              Create or Edit For Any User
+            </button>
+          </div>
+        </div>
+        <div className="text-xs text-gray-500 dark:text-gray-400">
+          {viewMode === "pending-review" ? "Checking and submitting pending biographies" : "Create or update biography for a selected user"}
+        </div>
       </div>
 
       <div className="grid gap-6 lg:grid-cols-[360px_minmax(0,1fr)]">
         <section className="rounded-xl border border-gray-200 bg-white p-4 dark:border-gray-800 dark:bg-slate-900">
           <h2 className="mb-3 text-sm font-semibold text-gray-900 dark:text-white">Users</h2>
+
+          {pendingUserRows.length > 0 && (
+            <div className="mb-3 rounded-lg border border-amber-200 bg-amber-50/60 p-3 dark:border-amber-900/40 dark:bg-amber-900/10">
+              <div className="mb-2 flex items-center justify-between">
+                <div className="text-xs font-medium text-amber-800 dark:text-amber-300">Pending queue</div>
+                <Button size="sm" variant="outline" onClick={selectNextPending} disabled={isBusy || pendingUserRows.length < 2}>
+                  Next Pending
+                </Button>
+              </div>
+              <div className="flex max-w-full gap-2 overflow-x-auto pb-1">
+                {pendingUserRows.map((user) => {
+                  const isActive = selectedUserId === user.id;
+                  return (
+                    <button
+                      key={`pending-${user.id}`}
+                      type="button"
+                      onClick={() => {
+                        setViewMode("pending-review");
+                        setSelectedUserId(user.id);
+                      }}
+                      className={`whitespace-nowrap rounded-full border px-3 py-1 text-[11px] font-medium transition ${
+                        isActive
+                          ? "border-amber-300 bg-amber-100 text-amber-800 dark:border-amber-700 dark:bg-amber-900/30 dark:text-amber-300"
+                          : "border-amber-200 bg-white text-amber-700 hover:bg-amber-100 dark:border-amber-800 dark:bg-slate-900 dark:text-amber-300 dark:hover:bg-amber-900/20"
+                      }`}
+                    >
+                      {user.name}
+                    </button>
+                  );
+                })}
+              </div>
+            </div>
+          )}
+
           <input
             type="text"
             value={search}
             onChange={(e) => setSearch(e.target.value)}
-            placeholder="Search by user name, email, ID..."
+            placeholder={viewMode === "pending-review" ? "Search pending users by name, email, ID..." : "Search all users by name, email, ID..."}
             className="mb-3 w-full rounded border border-gray-300 bg-white px-3 py-2 text-sm text-gray-900 dark:border-gray-700 dark:bg-slate-800 dark:text-gray-100"
           />
 
           <div className="mb-3 rounded-lg border border-gray-200 p-3 text-xs dark:border-gray-700">
             <div className="text-gray-600 dark:text-gray-300">Pending biographies</div>
             <div className="mt-1 text-base font-semibold text-gray-900 dark:text-white">{pendingBiographies.length}</div>
+            <div className="mt-1 text-[11px] text-gray-500 dark:text-gray-400">
+              {viewMode === "pending-review" ? "Showing pending users only" : "Showing all users (pending marked)"}
+            </div>
           </div>
 
           <div className="max-h-[65vh] space-y-2 overflow-y-auto pr-1">
-            {userRows.map((user) => {
+            {visibleUserRows.map((user) => {
               const isActive = selectedUserId === user.id;
               return (
                 <button
@@ -332,9 +423,9 @@ export default function BiographyManagement() {
               );
             })}
 
-            {!isPendingLoading && userRows.length === 0 && (
+            {!isPendingLoading && visibleUserRows.length === 0 && (
               <div className="rounded-lg border border-dashed border-gray-300 p-4 text-center text-xs text-gray-500 dark:border-gray-700 dark:text-gray-400">
-                No users found.
+                {viewMode === "pending-review" ? "No pending biographies found for this search." : "No users found."}
               </div>
             )}
           </div>
@@ -358,6 +449,13 @@ export default function BiographyManagement() {
                 </div>
 
                 <div className="flex items-center gap-2">
+                  {viewMode === "pending-review" && (
+                    <span className={`inline-flex rounded-full px-2 py-1 text-xs font-medium ${isSelectedUserPending ? "bg-amber-100 text-amber-700 dark:bg-amber-900/30 dark:text-amber-300" : "bg-gray-100 text-gray-600 dark:bg-slate-700 dark:text-gray-300"}`}>
+                      {isSelectedUserPending && pendingUserRows.length > 0
+                        ? `Pending ${selectedPendingIndex + 1} of ${pendingUserRows.length}`
+                        : "Not Pending"}
+                    </span>
+                  )}
                   {activeStatus && (
                     <span className={`inline-flex rounded-full px-2 py-1 text-xs font-medium ${statusClass(activeStatus)}`}>
                       {activeStatus}
@@ -422,10 +520,6 @@ export default function BiographyManagement() {
                   Upload PDF
                 </Button>
 
-                <Button size="sm" onClick={savePending} disabled={!canSavePending || isBusy}>
-                  Save Pending
-                </Button>
-
                 <Button size="sm" onClick={approve} disabled={!canApprove || isBusy}>
                   Approve
                 </Button>
@@ -443,9 +537,15 @@ export default function BiographyManagement() {
                   Reject
                 </Button>
 
-                <Button size="sm" onClick={publishDirectly} disabled={!canPublishDirectly || isBusy}>
-                  Publish Directly
+                <Button size="sm" onClick={updateBiography} disabled={!canUpdateBiography || isBusy}>
+                  Update Biography
                 </Button>
+
+                {viewMode === "pending-review" && (
+                  <Button size="sm" variant="outline" onClick={selectNextPending} disabled={isBusy || pendingUserRows.length < 2}>
+                    Next Pending
+                  </Button>
+                )}
 
                 <span className="ml-1 text-xs text-gray-500 dark:text-gray-400">
                   Upload image/PDF: {canUpload ? "Enabled" : "Disabled"}
