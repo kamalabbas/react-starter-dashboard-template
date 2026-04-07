@@ -15,7 +15,7 @@ const useUpdateUserAccess = () => {
     mutationFn: (body: UpdateUserAccessRequest) => postData<UpdateUserAccessRequest, BaseResponse<any>>(`/Auth/UpdateUserAccess`, body),
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ["users", "list"] });
-      qc.invalidateQueries({ queryKey: ["auth", "permissions", "current-user"] });
+      qc.invalidateQueries({ queryKey: ["auth", "permissions"] });
     },
   });
 };

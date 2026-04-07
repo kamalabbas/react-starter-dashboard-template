@@ -4,6 +4,8 @@ import { Link, useLocation } from "react-router";
 // Assume these icons are imported from an icon library
 import { ChevronDownIcon, HorizontaLDots, GroupIcon, PageIcon, PaperPlaneIcon, ShootingStarIcon } from "../icons";
 import { useSidebar } from "../context/SidebarContext";
+import useGetUserPermissions from "@/hooks/useGetUserPermissions";
+import { hasConfigurationAccess, hasPageAccess } from "@/utility/pageAccess";
 
 type NavItem = {
   name: string;
@@ -103,6 +105,7 @@ const navItems: NavItem[] = [
 const AppSidebar: React.FC = () => {
   const { isExpanded, isMobileOpen, isHovered, setIsHovered } = useSidebar();
   const location = useLocation();
+  const { data: currentUserPermissionCodes = [] } = useGetUserPermissions();
 
   const [openSubmenu, setOpenSubmenu] = useState<{
     type: "main" | "others";
@@ -154,7 +157,20 @@ const AppSidebar: React.FC = () => {
 
   const renderMenuItems = (items: NavItem[], menuType: "main") => (
     <ul className="flex flex-col gap-4">
-      {items.map((nav, index) => (
+      {items.map((nav, index) => {
+        if (nav.path) {
+          if (!hasPageAccess(nav.path, currentUserPermissionCodes)) return null;
+        }
+
+        const visibleSubItems = nav.subItems?.filter((subItem) => hasPageAccess(subItem.path, currentUserPermissionCodes)) ?? [];
+        if (nav.name === "Configuration" && !hasConfigurationAccess(currentUserPermissionCodes)) {
+          return null;
+        }
+        if (nav.subItems && visibleSubItems.length === 0) {
+          return null;
+        }
+
+        return (
         <li key={nav.name}>
           {nav.subItems ? (
             <button
@@ -202,7 +218,7 @@ const AppSidebar: React.FC = () => {
               }}
             >
               <ul className="mt-2 space-y-1 ml-9">
-                {nav.subItems.map((subItem) => (
+                {visibleSubItems.map((subItem) => (
                   <li key={subItem.name}>
                     <Link
                       to={subItem.path}
@@ -236,7 +252,7 @@ const AppSidebar: React.FC = () => {
             </div>
           )}
         </li>
-      ))}
+      )})}
     </ul>
   );
 

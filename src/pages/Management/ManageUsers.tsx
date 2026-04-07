@@ -1,4 +1,4 @@
-import React, { useMemo, useState } from "react";
+import React, { useEffect, useMemo, useState } from "react";
 import { Link } from "react-router";
 import useUsersList from "@/hooks/useUsersList";
 import BasicTable, { Column } from "@/components/tables/BasicTables/BasicTable";
@@ -7,6 +7,7 @@ import UserAvatar from "@/components/ui/avatar/UserAvatar";
 import Button from "@/components/ui/button/Button";
 import { Modal } from "@/components/ui/modal";
 import { useToastStore } from "@/stores/toastStore";
+import { useAuthStore } from "@/stores/authStore";
 import useChangeEmailByAdmin from "@/hooks/useChangeEmailByAdmin";
 import { useLookup } from "@/hooks/useLookup";
 import { LookupDomain } from "@/interface/enums";
@@ -28,10 +29,12 @@ const ManageUsers: React.FC = () => {
   const [newEmail, setNewEmail] = useState("");
   const [selectedRoleCode, setSelectedRoleCode] = useState("");
   const [selectedPermissionCodes, setSelectedPermissionCodes] = useState<string[]>([]);
+  const [prefilledPermissionUserId, setPrefilledPermissionUserId] = useState<number | null>(null);
   const [openActionsForUserId, setOpenActionsForUserId] = useState<number | null>(null);
   const [deactivateTargetUser, setDeactivateTargetUser] = useState<User | null>(null);
 
   const showToast = useToastStore((s) => s.showToast);
+  const loggedInUser = useAuthStore((s) => s.user);
 
   const changeEmailMutation = useChangeEmailByAdmin();
   const updateUserAccessMutation = useUpdateUserAccess();
@@ -39,6 +42,10 @@ const ManageUsers: React.FC = () => {
   const { getDomain } = useLookup([LookupDomain.USER_ROLE]);
   const { data: allPermissions = [], isLoading: isLoadingPermissions } = useGetAllPermissions();
   const { data: currentUserPermissionCodes = [] } = useGetUserPermissions();
+  const { data: selectedUserPermissionCodes = [], isLoading: isLoadingSelectedUserPermissions } = useGetUserPermissions(
+    selectedUser?.id,
+    { enabled: roleModalOpen && Boolean(selectedUser?.id) }
+  );
 
   const roleOptions = useMemo(
     () =>
@@ -73,9 +80,13 @@ const ManageUsers: React.FC = () => {
   );
 
   const canManageAccess = useMemo(() => {
+    if (loggedInUser?.userRoleCode === "ADMIN_USER" || loggedInUser?.userRoleCode === "SUPER_ADMIN") {
+      return true;
+    }
+
     if (currentUserPermissionCodes.length === 0) return true;
     return currentUserPermissionCodes.some((code) => /(ACCESS|ROLE|PERMISSION|USER)/i.test(code));
-  }, [currentUserPermissionCodes]);
+  }, [currentUserPermissionCodes, loggedInUser?.userRoleCode]);
 
   const filteredUsers = users.filter((u) => {
     const raw = search.trim();
@@ -235,6 +246,21 @@ const ManageUsers: React.FC = () => {
     },
   ];
 
+  useEffect(() => {
+    if (!roleModalOpen || !selectedUser) return;
+    if (isLoadingSelectedUserPermissions) return;
+    if (prefilledPermissionUserId === selectedUser.id) return;
+
+    setSelectedPermissionCodes(selectedUserPermissionCodes);
+    setPrefilledPermissionUserId(selectedUser.id);
+  }, [
+    roleModalOpen,
+    selectedUser,
+    selectedUserPermissionCodes,
+    isLoadingSelectedUserPermissions,
+    prefilledPermissionUserId,
+  ]);
+
   const openEmailModal = (user: User) => {
     setSelectedUser(user);
     setNewEmail(user.email);
@@ -245,6 +271,7 @@ const ManageUsers: React.FC = () => {
     setSelectedUser(user);
     setSelectedRoleCode(user.userRoleCode === "NORMAL_USER" || user.userRoleCode === "ADMIN_USER" ? user.userRoleCode : "");
     setSelectedPermissionCodes([]);
+    setPrefilledPermissionUserId(null);
     setRoleModalOpen(true);
   };
 
@@ -367,7 +394,14 @@ const ManageUsers: React.FC = () => {
         </div>
       </Modal>
 
-      <Modal isOpen={roleModalOpen} onClose={() => setRoleModalOpen(false)} className="max-w-md">
+      <Modal
+        isOpen={roleModalOpen}
+        onClose={() => {
+          setRoleModalOpen(false);
+          setPrefilledPermissionUserId(null);
+        }}
+        className="max-w-md"
+      >
         <div className="p-6 pt-12 sm:pt-14">
           <h2 className="text-lg font-semibold mb-2 text-gray-800 dark:text-white">Change User Role</h2>
           <p className="text-sm text-gray-500 dark:text-gray-400 mb-4">
@@ -414,6 +448,8 @@ const ManageUsers: React.FC = () => {
             <div className="max-h-48 overflow-y-auto border rounded p-2 space-y-2 dark:border-gray-700">
               {isLoadingPermissions ? (
                 <p className="text-xs text-gray-500 dark:text-gray-400">Loading permissions...</p>
+              ) : isLoadingSelectedUserPermissions ? (
+                <p className="text-xs text-gray-500 dark:text-gray-400">Loading user permissions...</p>
               ) : normalizedPermissionOptions.length === 0 ? (
                 <p className="text-xs text-gray-500 dark:text-gray-400">No permission catalog returned from API.</p>
               ) : (
