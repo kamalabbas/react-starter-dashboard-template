@@ -8,6 +8,7 @@ import { Modal } from "@/components/ui/modal";
 import useUpdateAnnouncement, { UpdateAnnouncementRequest } from "@/hooks/useUpdateAnnouncement";
 import { useToastStore } from "@/stores/toastStore";
 import { getData } from "@/services/api";
+import { AlertIcon } from "@/icons";
 
 type GetAnnouncementsResponse = {
   data?: {
@@ -28,7 +29,6 @@ const schema = yup.object({
   id: yup.number().required().default(-1),
   subject: yup.string().required("Subject is required"),
   body: yup.string().required("Body is required"),
-  isActive: yup.boolean().required().default(true),
 });
 
 type FormValues = yup.InferType<typeof schema>;
@@ -42,6 +42,8 @@ const CreateAnnouncements: React.FC = () => {
   const [search, setSearch] = useState("");
   const [modalOpen, setModalOpen] = useState(false);
   const [editing, setEditing] = useState<Announcement | null>(null);
+  const [deleteTarget, setDeleteTarget] = useState<Announcement | null>(null);
+  const [deleteModalOpen, setDeleteModalOpen] = useState(false);
 
   const {
     register,
@@ -50,7 +52,7 @@ const CreateAnnouncements: React.FC = () => {
     reset,
   } = useForm<FormValues>({
     resolver: yupResolver(schema) as any,
-    defaultValues: { id: -1, subject: "", body: "", isActive: true },
+    defaultValues: { id: -1, subject: "", body: "" },
   });
 
   const [saving, setSaving] = React.useState(false);
@@ -58,7 +60,7 @@ const CreateAnnouncements: React.FC = () => {
   const fetchAnnouncements = async () => {
     setLoading(true);
     try {
-      const res = await getData<GetAnnouncementsResponse>("/FamilyTreeBe/Announcement/GetAnnouncements");
+      const res = await getData<GetAnnouncementsResponse>("/FamilyTreeBe/Announcement/GetAnnouncements?isActive=true");
       setList(res?.data?.announcementList ?? []);
     } catch (err: any) {
       showToast(err?.message ?? "Failed to fetch announcements", "error");
@@ -81,7 +83,7 @@ const CreateAnnouncements: React.FC = () => {
 
   const openCreate = () => {
     setEditing(null);
-    reset({ id: -1, subject: "", body: "", isActive: true });
+    reset({ id: -1, subject: "", body: "" });
     setModalOpen(true);
   };
 
@@ -91,7 +93,6 @@ const CreateAnnouncements: React.FC = () => {
       id: a.id,
       subject: a.subject ?? "",
       body: a.body ?? "",
-      isActive: !!a.isActive,
     });
     setModalOpen(true);
   };
@@ -103,15 +104,51 @@ const CreateAnnouncements: React.FC = () => {
   const onSubmit = async (data: FormValues) => {
     setSaving(true);
     try {
-      await mutation.mutateAsync(data as UpdateAnnouncementRequest);
+      const payload: UpdateAnnouncementRequest = {
+        id: data.id,
+        subject: data.subject,
+        body: data.body,
+        isActive: editing ? !!editing.isActive : true,
+      };
+      await mutation.mutateAsync(payload);
       showToast("Announcement saved", "success");
       setModalOpen(false);
       setEditing(null);
-      reset({ id: -1, subject: "", body: "", isActive: true });
+      reset({ id: -1, subject: "", body: "" });
       await fetchAnnouncements();
     } catch (err: any) {
       const msg = err?.message || "Failed to save announcement";
       showToast(msg, "error");
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  const openDeleteModal = (a: Announcement) => {
+    setDeleteTarget(a);
+    setDeleteModalOpen(true);
+  };
+
+  const closeDeleteModal = () => {
+    setDeleteModalOpen(false);
+    setDeleteTarget(null);
+  };
+
+  const handleDelete = async () => {
+    if (!deleteTarget) return;
+    setSaving(true);
+    try {
+      await mutation.mutateAsync({
+        id: deleteTarget.id,
+        subject: deleteTarget.subject,
+        body: deleteTarget.body,
+        isActive: false,
+      });
+      showToast("Announcement deleted", "success");
+      closeDeleteModal();
+      await fetchAnnouncements();
+    } catch (err: any) {
+      showToast(err?.message || "Failed to delete announcement", "error");
     } finally {
       setSaving(false);
     }
@@ -151,9 +188,19 @@ const CreateAnnouncements: React.FC = () => {
       header: "Actions",
       className: "px-4 py-2 text-left text-xs font-semibold text-gray-500 dark:text-gray-300",
       render: (a) => (
-        <Button size="sm" onClick={() => openEdit(a)}>
-          Edit
-        </Button>
+        <div className="flex items-center gap-2">
+          <Button size="sm" onClick={() => openEdit(a)}>
+            Edit
+          </Button>
+          <Button
+            size="sm"
+            variant="outline"
+            onClick={() => openDeleteModal(a)}
+            disabled={saving || mutation.isPending}
+          >
+            Delete
+          </Button>
+        </div>
       ),
     },
   ];
@@ -209,18 +256,6 @@ const CreateAnnouncements: React.FC = () => {
               {errors.body && <p className="mt-1 text-xs text-red-500">{errors.body.message}</p>}
             </div>
 
-            <div className="mb-6 flex items-center gap-3">
-              <input
-                type="checkbox"
-                {...register("isActive")}
-                id="isActive"
-                className="h-4 w-4 rounded border-gray-200 bg-white dark:bg-white/[0.03]"
-              />
-              <label htmlFor="isActive" className="text-sm text-gray-700 dark:text-gray-300">
-                Active
-              </label>
-            </div>
-
             <div className="flex items-center gap-3">
               <Button type="submit" disabled={isSubmitting || saving}>
                 {saving ? "Saving..." : "Save"}
@@ -230,6 +265,41 @@ const CreateAnnouncements: React.FC = () => {
               </Button>
             </div>
           </form>
+        </div>
+      </Modal>
+
+      <Modal isOpen={deleteModalOpen} onClose={closeDeleteModal} showCloseButton={true}>
+        <div className="p-6 w-full max-w-xl">
+          <div className="flex items-start gap-4">
+            <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-full bg-error-50 text-error-600 dark:bg-error-500/20 dark:text-error-400">
+              <AlertIcon />
+            </div>
+            <div className="min-w-0">
+              <h2 className="font-semibold text-gray-800 text-title-sm dark:text-white/90">Delete Announcement</h2>
+              <p className="mt-1 text-sm text-gray-600 dark:text-gray-300">
+                This action will hide the announcement from active listings.
+              </p>
+            </div>
+          </div>
+
+          <div className="mt-5 rounded-xl border border-gray-200 bg-gray-50 p-4 dark:border-white/[0.08] dark:bg-white/[0.03]">
+            <p className="text-xs uppercase tracking-wide text-gray-500 dark:text-gray-400">Selected Announcement</p>
+            <p className="mt-1 truncate text-sm font-semibold text-gray-900 dark:text-white/90">{deleteTarget?.subject ?? "-"}</p>
+            <p className="mt-1 line-clamp-2 text-sm text-gray-600 dark:text-gray-300">{deleteTarget?.body ?? "-"}</p>
+          </div>
+
+          <div className="mt-6 flex items-center gap-3">
+            <Button
+              onClick={() => void handleDelete()}
+              disabled={saving || mutation.isPending}
+              className="bg-error-600 hover:bg-error-700 disabled:bg-error-300"
+            >
+              {saving ? "Deleting..." : "Yes, Delete"}
+            </Button>
+            <Button variant="outline" onClick={closeDeleteModal} disabled={saving || mutation.isPending}>
+              Keep It
+            </Button>
+          </div>
         </div>
       </Modal>
     </div>

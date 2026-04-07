@@ -2,7 +2,7 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import { Link, useLocation } from "react-router";
 
 // Assume these icons are imported from an icon library
-import { ChevronDownIcon, HorizontaLDots, GroupIcon, PageIcon, PaperPlaneIcon } from "../icons";
+import { ChevronDownIcon, HorizontaLDots, GroupIcon, PageIcon, PaperPlaneIcon, ShootingStarIcon } from "../icons";
 import { useSidebar } from "../context/SidebarContext";
 
 type NavItem = {
@@ -22,6 +22,11 @@ const navItems: NavItem[] = [
     name: "Create announcements",
     icon: <PaperPlaneIcon />,
     path: "/create-announcements",
+  },
+  {
+    name: "Live Event",
+    icon: <ShootingStarIcon />,
+    path: "/event-live",
   },
   {
     name: "Manage Features",

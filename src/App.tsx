@@ -38,6 +38,7 @@ import BiographyManagement from "./pages/BiographyManagement";
 import HistoryArticles from "./pages/HistoryArticles";
 import HistoryArticleEditor from "./pages/HistoryArticleEditor";
 import CreateUser from "./pages/Management/CreateUser";
+import EventLanding from "./pages/EventLanding";
 
 export default function App() {
   return (
@@ -49,6 +50,7 @@ export default function App() {
           {/* Dashboard Layout */}
           <Route element={<RequireAuth><AppLayout /></RequireAuth>}>
             <Route index path="/" element={<Home />} />
+            <Route path="/event-live" element={<EventLanding />} />
 
             {/* Others Page */}
             <Route path="/profile" element={<UserProfiles />} />
