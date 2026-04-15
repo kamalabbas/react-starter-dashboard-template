@@ -39,7 +39,7 @@ export interface GetFitraResponse {
 const useGetFitra = (userId: number) => {
     return useQuery<BaseResponse<GetFitraResponse>, Error, Fitra[]>({
         queryKey: ["Fitra", userId],
-        queryFn: () => getData<BaseResponse<GetFitraResponse>>(`/FamilyTreeBe/Fitra/GetFitra?userId=${userId}`),
+        queryFn: () => getData<BaseResponse<GetFitraResponse>>(`/Admin/Fitra/GetFitra?userId=${userId}`),
         select: (res) => res.data?.fitraList ?? [],
         enabled: !!userId,
         staleTime: 1000 * 60 * 10,

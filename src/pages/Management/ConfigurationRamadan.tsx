@@ -49,7 +49,7 @@ const ConfigurationRamadan: React.FC = () => {
     setLoading(true);
     try {
       const res = await getData<BaseResponse<GetFitraResponse>>(
-        "/FamilyTreeBe/Fitra/GetFitra"
+        "/Admin/Fitra/GetFitra"
       );
       setPeriods(res.data?.fitraList ?? []);
     } catch (err: any) {

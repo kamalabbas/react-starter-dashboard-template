@@ -39,30 +39,34 @@ type Loader = {
   file: Promise<File | null>;
 };
 
-class Base64UploadAdapter {
+class ApiUploadAdapter {
   loader: Loader;
+  pageId: number;
+  getStatusCode: () => "DRAFT" | "PUBLISHED";
 
-  constructor(loader: Loader) {
+  constructor(loader: Loader, pageId: number, getStatusCode: () => "DRAFT" | "PUBLISHED") {
     this.loader = loader;
+    this.pageId = pageId;
+    this.getStatusCode = getStatusCode;
   }
 
   async upload(): Promise<{ default: string }> {
     const file = await this.loader.file;
     if (!file) throw new Error("No file provided");
-    const base64 = await this.fileToBase64(file);
-    return { default: String(base64 || "") };
+
+    const response = await uploadHistoryMediaFile({
+      pageId: this.pageId,
+      statusCode: this.getStatusCode(),
+      file,
+    });
+
+    const url = response.data?.url;
+    if (!url) throw new Error("Upload did not return a file URL");
+
+    return { default: url };
   }
 
   abort() {}
-
-  fileToBase64(file: File): Promise<string | ArrayBuffer | null> {
-    return new Promise((resolve, reject) => {
-      const reader = new FileReader();
-      reader.readAsDataURL(file);
-      reader.onload = () => resolve(reader.result);
-      reader.onerror = (error) => reject(error);
-    });
-  }
 }
 
 export default function HistoryArticleEditor() {
@@ -81,6 +85,8 @@ export default function HistoryArticleEditor() {
   const [isUploadingPdf, setIsUploadingPdf] = useState(false);
   const [statusCode, setStatusCode] = useState<"DRAFT" | "PUBLISHED">("DRAFT");
   const pdfInputRef = useRef<HTMLInputElement | null>(null);
+  const statusCodeRef = useRef<"DRAFT" | "PUBLISHED">(statusCode);
+  useEffect(() => { statusCodeRef.current = statusCode; }, [statusCode]);
 
   const currentArticle = useMemo(() => {
     if (isCreateMode) return null;
@@ -389,7 +395,7 @@ export default function HistoryArticleEditor() {
           }}
           onReady={(editor) => {
             editor.plugins.get("FileRepository").createUploadAdapter = (loader) => {
-              return new Base64UploadAdapter(loader);
+              return new ApiUploadAdapter(loader, pageId, () => statusCodeRef.current);
             };
           }}
           data={contentHtml}

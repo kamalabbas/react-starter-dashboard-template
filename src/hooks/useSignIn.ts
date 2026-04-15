@@ -1,4 +1,4 @@
-import { useMutation } from "@tanstack/react-query";
+import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { signIn } from "@/services/authService";
 import { LoginRequest } from "@/interface/auth.interface";
 import { useAuthStore } from "@/stores/authStore";
@@ -9,6 +9,7 @@ const useSignIn = () => {
   const setAccessToken = useAuthStore((s) => s.setAccessToken);
   const setUser = useAuthStore((s) => s.setUser);
   const showToast = useToastStore((s) => s.showToast);
+  const queryClient = useQueryClient();
 
   return useMutation({
     mutationFn: async (body: LoginRequest) => {
@@ -25,6 +26,7 @@ const useSignIn = () => {
       if (!payload) return;
       const token = payload.token;
       await setRefreshToken(token.refreshToken);
+      queryClient.clear();
       setAccessToken(token.accessToken);
       setUser(payload.user);
       showToast("Signed in", "success");

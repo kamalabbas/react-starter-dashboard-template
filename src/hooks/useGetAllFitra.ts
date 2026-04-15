@@ -36,7 +36,7 @@ interface FitraResponse {
 const useGetAllFitra = () => {
   return useQuery<BaseResponse<FitraResponse>, Error, FitraPaymentItem[]>({
     queryKey: ["fitra", "payments"],
-    queryFn: () => getData<BaseResponse<FitraResponse>>(`/FamilyTreeBe/Fitra/GetFitra`),
+    queryFn: () => getData<BaseResponse<FitraResponse>>(`/Admin/Fitra/GetFitra`),
     select: (res) => {
       const list = res.data?.fitraList ?? [];
       const payments = list.flatMap((f) => f.fitraPaymentList ?? []);
