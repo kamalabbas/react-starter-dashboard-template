@@ -74,7 +74,7 @@ export default function HistoryArticles() {
                       </span>
                     </div>
                   </div>
-                  <p className="text-xs text-gray-500 dark:text-gray-400 mt-2 line-clamp-2">
+                  <p className="text-xs text-gray-500 dark:text-gray-400 mt-2 line-clamp-2 break-all">
                     {article.contentHtml || "No content"}
                   </p>
                 </div>
