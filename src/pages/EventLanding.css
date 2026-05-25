@@ -1,7 +1,7 @@
 @import url("https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;700&family=Sora:wght@400;600;700;800&display=swap");
 
 .event-landing {
-  height: clamp(520px, calc(100dvh - 165px), 980px);
+  /* height: clamp(520px, calc(100dvh - 165px), 980px); */
   position: relative;
   isolation: isolate;
   overflow: hidden;
